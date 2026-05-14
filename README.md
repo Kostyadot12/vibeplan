@@ -43,7 +43,11 @@ vibeplan/
 │   ├── Info.plist
 │   ├── VibePlan.entitlements
 │   └── Makefile                  ← swiftc + lipo + create-dmg
-├── backend/                      ← (TBD, Phase 2)
+├── backend/                      ← Node + Fastify + Prisma (Phase 2)
+│   ├── src/                      ← server, routes, schemas
+│   ├── prisma/                   ← schema + миграции
+│   ├── Dockerfile + docker-compose.yml
+│   └── README.md
 ├── mockups/
 │   └── main.html                 ← HTML-мокап главного экрана
 ├── .github/workflows/release.yml ← билд DMG по тегу v*.*.*
@@ -113,7 +117,8 @@ python3 process_icon.py   # требуется pillow: pip install pillow
 - [x] **Phase 0** — Скелет + GitHub Actions (v0.1.0)
 - [x] **Phase 1** — Месяц-сетка + таймлайн + редактор + SwiftData (v0.2.0)
 - [x] **Phase 1.x** — Drag&drop между днями + «Неразобранное» (v0.3.0)
-- [ ] **Phase 2** — Backend: Fastify + Prisma + Postgres + WebSocket
+- [x] **Phase 2** — Backend: Fastify + Prisma + SQLite/Postgres, REST CRUD
+- [ ] **Phase 2.x** — WebSocket realtime (рядом с REST)
 - [ ] **Phase 3** — Auth (email + 6-значный код, Keychain для JWT)
 - [ ] **Phase 4** — Sync: REST + last-write-wins
 - [ ] **Phase 5** — Realtime через WebSocket

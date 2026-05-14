@@ -1,5 +1,20 @@
 # Changelog
 
+## Phase 2 — Backend (без выхода DMG, only `backend/`)
+
+- Node 20 + TypeScript + Fastify + Prisma + SQLite (dev) / Postgres (prod)
+- REST: `GET/POST/PATCH/DELETE /tasks`, `GET /tasks/:id`, `GET /health`
+- Schema-validation через zod (категории + статусы фиксированные enum-ы)
+- Поля Task: id, title, note, startDate, durationMinutes, category, status,
+  sortOrder, inInbox, createdAt, updatedAt, subtasks[] — 1:1 со SwiftData
+- Subtasks обновляются replace-all семантикой
+- Фильтры по диапазону дат (`from`/`to`) и Inbox (`inbox=true|false`)
+- Dockerfile (multi-stage) + docker-compose с Postgres healthcheck
+- Порт 4400 (4000 занят бэком /Andrew/platform на этой машине)
+- End-to-end smoke-tested локально (curl POST → GET → PATCH → DELETE → 0)
+
+Auth/User/WebSocket — следующие фазы. Это чистый CRUD-фундамент.
+
 ## 0.3.0 — Phase 1.x: drag-and-drop + Inbox + переписанный редактор
 
 - Перетаскивание задач между днями в месяц-сетке (время сохраняется)

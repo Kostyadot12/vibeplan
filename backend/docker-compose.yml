@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vibeplan
+      POSTGRES_PASSWORD: vibeplan
+      POSTGRES_DB: vibeplan
+    volumes:
+      - vibeplan-db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vibeplan"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4400
+      DATABASE_URL: postgresql://vibeplan:vibeplan@db:5432/vibeplan?schema=public
+      ALLOWED_ORIGINS: ""
+      LOG_LEVEL: info
+      NODE_ENV: production
+    ports:
+      - "4400:4400"
+
+volumes:
+  vibeplan-db:

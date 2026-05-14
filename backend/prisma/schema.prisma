@@ -1,0 +1,45 @@
+// Prisma schema for VibePlan backend.
+//
+// Dev uses SQLite (file dev.db, zero infra). For prod, swap `provider` to
+// "postgresql" and point DATABASE_URL at a Postgres instance — the rest of
+// the schema is identical.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Task {
+  id              String   @id @default(cuid())
+  title           String
+  note            String   @default("")
+  startDate       DateTime
+  durationMinutes Int      @default(30)
+  category        String   @default("work")
+  status          String   @default("open")
+  sortOrder       Int      @default(0)
+  inInbox         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subtasks Subtask[]
+
+  @@index([startDate])
+  @@index([inInbox])
+}
+
+model Subtask {
+  id    String  @id @default(cuid())
+  title String
+  done  Boolean @default(false)
+  order Int     @default(0)
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
