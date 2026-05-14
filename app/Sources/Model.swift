@@ -20,6 +20,9 @@ final class PlanTask {
     @Relationship(deleteRule: .cascade)
     var subtasks: [Subtask] = []
 
+    @Relationship(deleteRule: .cascade)
+    var assignees: [TaskAssignee] = []
+
     init(
         title: String,
         note: String = "",
@@ -70,6 +73,21 @@ final class Subtask {
         self.done = done
         self.order = order
         self.serverId = serverId
+    }
+}
+
+/// Denormalized assignee — we keep user id + display info on the task itself
+/// so the calendar doesn't need a roster lookup just to render avatars.
+@Model
+final class TaskAssignee {
+    var userId: String     // matches User.id on the backend
+    var email: String
+    var name: String
+
+    init(userId: String, email: String, name: String) {
+        self.userId = userId
+        self.email = email
+        self.name = name
     }
 }
 

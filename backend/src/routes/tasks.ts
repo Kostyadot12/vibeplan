@@ -1,8 +1,18 @@
 import type { FastifyInstance } from "fastify";
 import { db } from "../db.js";
 import { TaskCreateInput, TaskPatchInput } from "../schemas.js";
+import { hub } from "../realtime.js";
+import { taskToDTO } from "../dto.js";
+
+const includeAll = {
+  subtasks: { orderBy: { order: "asc" as const } },
+  assignees: { include: { user: { select: { id: true, email: true, name: true } } } }
+};
 
 export async function taskRoutes(app: FastifyInstance) {
+  // All /tasks endpoints require a valid JWT.
+  app.addHook("onRequest", app.authenticate);
+
   // GET /tasks?from=ISO&to=ISO&inbox=true
   app.get("/tasks", async (req) => {
     const q = req.query as Record<string, string | undefined>;
@@ -18,21 +28,22 @@ export async function taskRoutes(app: FastifyInstance) {
       where.startDate = range;
     }
 
-    return db.task.findMany({
+    const tasks = await db.task.findMany({
       where,
-      include: { subtasks: { orderBy: { order: "asc" } } },
+      include: includeAll,
       orderBy: [{ startDate: "asc" }, { sortOrder: "asc" }]
     });
+    return tasks.map(taskToDTO);
   });
 
   // GET /tasks/:id
   app.get<{ Params: { id: string } }>("/tasks/:id", async (req, reply) => {
     const task = await db.task.findUnique({
       where: { id: req.params.id },
-      include: { subtasks: { orderBy: { order: "asc" } } }
+      include: includeAll
     });
     if (!task) return reply.notFound("Task not found");
-    return task;
+    return taskToDTO(task);
   });
 
   // POST /tasks
@@ -41,24 +52,29 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.badRequest(parsed.error.issues.map(i => i.message).join("; "));
     }
-    const { subtasks, ...task } = parsed.data;
+    const { subtasks, assigneeIds, ...task } = parsed.data;
+    const originClientId = (req.headers["x-client-id"] as string | undefined) ?? null;
 
     const created = await db.task.create({
       data: {
         ...task,
         startDate: new Date(task.startDate),
+        creatorId: req.user.sub,
         subtasks: subtasks.length
           ? { create: subtasks.map((s, idx) => ({
-              title: s.title,
-              done:  s.done,
-              order: s.order ?? idx
+              title: s.title, done: s.done, order: s.order ?? idx
             })) }
+          : undefined,
+        assignees: assigneeIds.length
+          ? { create: assigneeIds.map(uid => ({ userId: uid })) }
           : undefined
       },
-      include: { subtasks: { orderBy: { order: "asc" } } }
+      include: includeAll
     });
+    const dto = taskToDTO(created);
+    hub.broadcast({ type: "task.created", task: dto, originClientId });
     reply.code(201);
-    return created;
+    return dto;
   });
 
   // PATCH /tasks/:id
@@ -67,29 +83,37 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.badRequest(parsed.error.issues.map(i => i.message).join("; "));
     }
-    const { subtasks, ...rest } = parsed.data;
+    const { subtasks, assigneeIds, ...rest } = parsed.data;
+    const originClientId = (req.headers["x-client-id"] as string | undefined) ?? null;
 
     const data: Record<string, unknown> = { ...rest };
     if (rest.startDate) data.startDate = new Date(rest.startDate);
 
     try {
-      // Subtasks: replace-all semantics. Simpler than diffing, fine at our scale.
+      // Subtasks: replace-all semantics. Fine at our scale.
       if (subtasks) {
         await db.subtask.deleteMany({ where: { taskId: req.params.id } });
         data.subtasks = {
           create: subtasks.map((s, idx) => ({
-            title: s.title,
-            done:  s.done,
-            order: s.order ?? idx
+            title: s.title, done: s.done, order: s.order ?? idx
           }))
+        };
+      }
+      // Assignees: replace-all
+      if (assigneeIds) {
+        await db.taskAssignee.deleteMany({ where: { taskId: req.params.id } });
+        data.assignees = {
+          create: assigneeIds.map(uid => ({ userId: uid }))
         };
       }
       const updated = await db.task.update({
         where: { id: req.params.id },
         data: data as never,
-        include: { subtasks: { orderBy: { order: "asc" } } }
+        include: includeAll
       });
-      return updated;
+      const dto = taskToDTO(updated);
+      hub.broadcast({ type: "task.updated", task: dto, originClientId });
+      return dto;
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
       if (code === "P2025") return reply.notFound("Task not found");
@@ -99,8 +123,10 @@ export async function taskRoutes(app: FastifyInstance) {
 
   // DELETE /tasks/:id
   app.delete<{ Params: { id: string } }>("/tasks/:id", async (req, reply) => {
+    const originClientId = (req.headers["x-client-id"] as string | undefined) ?? null;
     try {
       await db.task.delete({ where: { id: req.params.id } });
+      hub.broadcast({ type: "task.deleted", id: req.params.id, originClientId });
       reply.code(204);
       return;
     } catch (err: unknown) {
@@ -108,5 +134,13 @@ export async function taskRoutes(app: FastifyInstance) {
       if (code === "P2025") return reply.notFound("Task not found");
       throw err;
     }
+  });
+
+  // GET /team — list all team members so the picker can show them
+  app.get("/team", async () => {
+    return db.user.findMany({
+      select: { id: true, email: true, name: true, role: true },
+      orderBy: { createdAt: "asc" }
+    });
   });
 }

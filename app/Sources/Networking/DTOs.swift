@@ -34,6 +34,7 @@ struct TaskDTO: Codable {
     let createdAt: Date
     let updatedAt: Date
     let subtasks: [SubtaskDTO]
+    let assignees: [AssigneeDTO]
 }
 
 struct SubtaskDTO: Codable {
@@ -41,6 +42,12 @@ struct SubtaskDTO: Codable {
     let title: String
     let done: Bool
     let order: Int
+}
+
+struct AssigneeDTO: Codable, Hashable {
+    let id: String
+    let email: String
+    let name: String
 }
 
 /// POST /tasks body. `id` is optional — if omitted, server generates.
@@ -54,6 +61,7 @@ struct TaskCreatePayload: Encodable {
     let sortOrder: Int
     let inInbox: Bool
     let subtasks: [SubtaskCreatePayload]
+    let assigneeIds: [String]
 }
 
 struct SubtaskCreatePayload: Encodable {
@@ -73,4 +81,13 @@ struct TaskPatchPayload: Encodable {
     var sortOrder: Int?
     var inInbox: Bool?
     var subtasks: [SubtaskCreatePayload]?
+    var assigneeIds: [String]?
+}
+
+/// `GET /team` — list of users available for assignment.
+struct TeamMemberDTO: Codable, Hashable, Identifiable {
+    let id: String
+    let email: String
+    let name: String
+    let role: String
 }

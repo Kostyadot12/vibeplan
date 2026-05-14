@@ -2,10 +2,12 @@ import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import sensible from "@fastify/sensible";
 import jwt from "@fastify/jwt";
+import websocket from "@fastify/websocket";
 import { healthRoutes } from "./routes/health.js";
 import { taskRoutes } from "./routes/tasks.js";
 import { authRoutes } from "./routes/auth.js";
 import { adminRoutes } from "./routes/admin.js";
+import { wsRoutes } from "./routes/ws.js";
 import { registerAuthDecorators } from "./auth/jwt.js";
 import { bootstrapSeed } from "./seed.js";
 
@@ -31,12 +33,14 @@ export async function buildServer(): Promise<FastifyInstance> {
     secret: process.env.JWT_SECRET ?? "dev-secret-change-me",
     sign:   { expiresIn: process.env.JWT_TTL ?? "30d" }
   });
+  await app.register(websocket);
   registerAuthDecorators(app);
 
   await app.register(healthRoutes);
   await app.register(authRoutes);
   await app.register(adminRoutes);
   await app.register(taskRoutes);
+  await app.register(wsRoutes);
 
   await bootstrapSeed(app.log);
 

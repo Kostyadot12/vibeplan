@@ -30,7 +30,8 @@ model Task {
   creatorId String?
   creator   User?   @relation("CreatedTasks", fields: [creatorId], references: [id])
 
-  subtasks Subtask[]
+  subtasks  Subtask[]
+  assignees TaskAssignee[]
 
   @@index([startDate])
   @@index([inInbox])
@@ -44,7 +45,19 @@ model User {
   role      String   @default("member") // "admin" | "member"
   createdAt DateTime @default(now())
 
-  createdTasks Task[] @relation("CreatedTasks")
+  createdTasks  Task[]         @relation("CreatedTasks")
+  assignedTasks TaskAssignee[]
+}
+
+// M:N join table — multiple users can be assigned to one task.
+model TaskAssignee {
+  taskId String
+  userId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
 }
 
 model AllowedEmail {

@@ -90,6 +90,10 @@ struct APIClient {
         try await voidDelete("tasks/\(id)")
     }
 
+    func listTeam() async throws -> [TeamMemberDTO] {
+        try await get("team")
+    }
+
     // MARK: – Internals
 
     private func get<R: Decodable>(_ path: String) async throws -> R {
@@ -117,6 +121,9 @@ struct APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // Tag every mutation with our installation id so the server can echo
+        // it back on the WebSocket and the receiving end can ignore its own writes.
+        req.setValue(RealtimeClient.clientId, forHTTPHeaderField: "X-Client-Id")
         if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body { req.httpBody = try Self.encoder.encode(body) }
 

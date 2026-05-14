@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.5.0 — Phase 4.x + 5 + 6 + Polish
+
+### 4.x — security cleanup
+- `/tasks/*` теперь требует JWT (раньше был открыт для разработки Phase 4)
+
+### 5 — WebSocket realtime
+- Backend: `@fastify/websocket`, endpoint `/ws?token=…&clientId=…`
+  - JWT-аутентификация, heartbeat ping каждые 25 сек
+  - На `POST/PATCH/DELETE /tasks` сервер броадкастит событие всем
+    подключённым клиентам с `originClientId` (для echo prevention)
+  - События: `task.created` / `task.updated` / `task.deleted` / `hello` / `ping`
+- Backend: `X-Client-Id` header на REST → попадает в broadcast как `originClientId`
+- App: `RealtimeClient` (URLSessionWebSocketTask + автореконнект 1→2→4→8→16→30s)
+  - Применяет входящие события к SwiftData
+  - Игнорирует свои события по совпадению `clientId` (UUID per installation, в UserDefaults)
+  - Запускается на логине, останавливается на logout
+
+### 6 — Multi-assignees
+- Backend: `TaskAssignee` join model (Task ↔ User), миграция
+- Backend: `assigneeIds[]` в POST/PATCH `/tasks`, `assignees[]` в ответе
+- Backend: `GET /team` — список всех юзеров (для picker'а)
+- App: `TaskAssignee` @Model + `PlanTask.assignees` relationship
+- App: `TeamRoster` (Observable, кэширует /team на логине)
+- App: assignee-picker в редакторе — chip-row с `AvatarBadge` + чекмарком
+- App: AvatarStack на карточке задачи (до 3 + "+N")
+- App: переиспользуемый `AvatarBadge` со стабильной палитрой по email-хешу
+- App: `FlowLayout` — кастомный SwiftUI Layout для wrap'а chip-рядов
+
+### Polish
+- Рабочий поиск в тулбаре (`TextField` + `xmark.circle` для очистки)
+  - Фильтрует month grid, day timeline, inbox по title/note/assignee
+- Live-индикатор в тулбаре: 🟢 Live · 🟠 Подключение · ⚪ Offline
+- Аватары в стопке на карточках задач (mockup parity)
+
+### Backend deployment
+- Прод-билд (`npm run build` → `dist/`) + перезапуск systemd-сервиса
+- Хостится на `82.38.68.48:4400` (этот сервер)
+
 ## 0.4.0 — Phase 4: Mac-приложение умеет логиниться и синкаться
 
 - LoginView: email → код из письма → JWT в Keychain

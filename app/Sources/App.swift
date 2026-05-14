@@ -7,10 +7,12 @@ struct VibePlanApp: App {
     @State private var auth: AuthState
     @State private var settings: AppSettings
     @State private var sync: SyncEngine
+    @State private var realtime: RealtimeClient
+    @State private var roster: TeamRoster
 
     init() {
         do {
-            container = try ModelContainer(for: PlanTask.self, Subtask.self)
+            container = try ModelContainer(for: PlanTask.self, Subtask.self, TaskAssignee.self)
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
         }
@@ -26,9 +28,17 @@ struct VibePlanApp: App {
         let auth = AuthState()
         let settings = AppSettings()
         let sync = SyncEngine(auth: auth, settings: settings, container: container)
+        let (rt, rost) = MainActor.assumeIsolated {
+            (
+                RealtimeClient(auth: auth, settings: settings, container: container),
+                TeamRoster(auth: auth, settings: settings)
+            )
+        }
         _auth     = State(initialValue: auth)
         _settings = State(initialValue: settings)
         _sync     = State(initialValue: sync)
+        _realtime = State(initialValue: rt)
+        _roster   = State(initialValue: rost)
     }
 
     var body: some Scene {
@@ -37,12 +47,14 @@ struct VibePlanApp: App {
                 .environment(auth)
                 .environment(settings)
                 .environment(sync)
+                .environment(realtime)
+                .environment(roster)
                 .frame(minWidth: 1100, minHeight: 720)
                 .task {
-                    // If we already have a token from Keychain, kick off a full
-                    // reconciliation so the calendar shows live team data.
                     if auth.isAuthenticated {
                         await sync.fullSync()
+                        await roster.refresh()
+                        realtime.start()
                     }
                 }
         }
@@ -58,8 +70,10 @@ struct VibePlanApp: App {
 
 /// Routes between login screen and the main calendar based on auth state.
 private struct RootView: View {
-    @Environment(AuthState.self)  private var auth
-    @Environment(SyncEngine.self) private var sync
+    @Environment(AuthState.self)      private var auth
+    @Environment(SyncEngine.self)     private var sync
+    @Environment(RealtimeClient.self) private var realtime
+    @Environment(TeamRoster.self)     private var roster
 
     var body: some View {
         Group {
@@ -70,9 +84,14 @@ private struct RootView: View {
             }
         }
         .onChange(of: auth.isAuthenticated) { _, nowAuthed in
-            // First successful login → pull team data
             if nowAuthed {
-                Task { await sync.fullSync() }
+                Task {
+                    await sync.fullSync()
+                    await roster.refresh()
+                    realtime.start()
+                }
+            } else {
+                realtime.stop()
             }
         }
     }

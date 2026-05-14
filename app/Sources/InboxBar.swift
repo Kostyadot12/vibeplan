@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct InboxBar: View {
     @Binding var expanded: Bool
+    let searchQuery: String
     let onEdit: (PlanTask) -> Void
 
     @Environment(\.modelContext) private var ctx
@@ -15,8 +16,16 @@ struct InboxBar: View {
 
     private var inboxTasks: [PlanTask] {
         allTasks
-            .filter { $0.inInbox }
+            .filter { $0.inInbox && matchesSearch($0) }
             .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private func matchesSearch(_ task: PlanTask) -> Bool {
+        let q = searchQuery.trimmingCharacters(in: .whitespaces).lowercased()
+        if q.isEmpty { return true }
+        if task.title.lowercased().contains(q) { return true }
+        if task.note.lowercased().contains(q)  { return true }
+        return false
     }
 
     var body: some View {

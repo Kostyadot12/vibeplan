@@ -11,6 +11,7 @@ struct MainWindowView: View {
     @State private var dragState = DragState()
     @State private var inboxExpanded: Bool = false
     @State private var settingsOpen: Bool = false
+    @State private var searchQuery: String = ""
 
     var body: some View {
         ZStack {
@@ -19,6 +20,7 @@ struct MainWindowView: View {
 
             VStack(spacing: 0) {
                 ToolbarBar(
+                    search: $searchQuery,
                     onToday: goToToday,
                     onAdd: { addingForDate = selectedDate },
                     onSettings: { settingsOpen = true }
@@ -29,11 +31,14 @@ struct MainWindowView: View {
                     VStack(spacing: 0) {
                         MonthGridView(
                             monthAnchor: $monthAnchor,
-                            selectedDate: $selectedDate
+                            selectedDate: $selectedDate,
+                            searchQuery: searchQuery
                         )
                         .frame(maxHeight: .infinity)
 
-                        InboxBar(expanded: $inboxExpanded, onEdit: { editingTask = $0 })
+                        InboxBar(expanded: $inboxExpanded,
+                                 searchQuery: searchQuery,
+                                 onEdit: { editingTask = $0 })
                             .padding(.horizontal, 20)
                             .padding(.bottom, 16)
                     }
@@ -43,6 +48,7 @@ struct MainWindowView: View {
 
                     DayPanelView(
                         date: selectedDate,
+                        searchQuery: searchQuery,
                         onEdit:   { editingTask = $0 },
                         onAddTap: { addingForDate = selectedDate }
                     )
@@ -83,12 +89,14 @@ private struct DateBox: Identifiable {
 // MARK: – Toolbar
 
 private struct ToolbarBar: View {
+    @Binding var search: String
     let onToday: () -> Void
     let onAdd: () -> Void
     let onSettings: () -> Void
 
-    @Environment(AuthState.self)  private var auth
-    @Environment(SyncEngine.self) private var sync
+    @Environment(AuthState.self)      private var auth
+    @Environment(SyncEngine.self)     private var sync
+    @Environment(RealtimeClient.self) private var realtime
 
     @State private var scope: Int = 1 // 0 personal, 1 team — stub for Phase 1
 
@@ -102,14 +110,21 @@ private struct ToolbarBar: View {
             .padding(3)
             .background(Color.black.opacity(0.06), in: Capsule())
 
-            // Search placeholder
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                Text("Поиск…")
-                Spacer()
+                    .foregroundStyle(VibePlanTheme.ink400)
+                TextField("", text: $search,
+                          prompt: Text("Поиск…").foregroundStyle(VibePlanTheme.ink400))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                if !search.isEmpty {
+                    Button(action: { search = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(VibePlanTheme.ink400)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .font(.system(size: 13))
-            .foregroundStyle(VibePlanTheme.ink400)
             .padding(.horizontal, 14)
             .frame(height: 32)
             .frame(maxWidth: 320)
@@ -153,21 +168,30 @@ private struct ToolbarBar: View {
 
     @ViewBuilder
     private var syncStatusChip: some View {
-        if sync.isSyncing {
-            HStack(spacing: 6) {
+        HStack(spacing: 6) {
+            if sync.isSyncing {
                 ProgressView().controlSize(.small)
-                Text("Синк…").font(.system(size: 11))
+                Text("Синк…").font(.system(size: 11)).foregroundStyle(VibePlanTheme.ink500)
+            } else if sync.lastError != nil {
+                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.red)
+                Text("Ошибка").font(.system(size: 11)).foregroundStyle(.red)
             }
-            .foregroundStyle(VibePlanTheme.ink500)
-        } else if sync.lastError != nil {
-            HStack(spacing: 4) {
-                Image(systemName: "exclamationmark.circle.fill")
-                Text("Ошибка синка").font(.system(size: 11))
+            switch realtime.status {
+            case .live:        liveDot(color: .green,            label: "Live")
+            case .connecting:  liveDot(color: .orange,           label: "Подключ.")
+            case .offline:     liveDot(color: VibePlanTheme.ink300, label: "Offline")
             }
-            .foregroundStyle(.red)
-        } else {
-            EmptyView()
         }
+    }
+
+    private func liveDot(color: Color, label: String) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(label).font(.system(size: 11)).foregroundStyle(VibePlanTheme.ink500)
+        }
+        .padding(.horizontal, 7).padding(.vertical, 3)
+        .background(.white.opacity(0.55), in: Capsule())
+        .overlay(Capsule().stroke(Color.black.opacity(0.05)))
     }
 
     private func scopeButton(_ title: String, index: Int) -> some View {

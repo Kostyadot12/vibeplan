@@ -12,6 +12,7 @@ struct TaskEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
     @Environment(SyncEngine.self) private var sync
+    @Environment(TeamRoster.self) private var roster
 
     @State private var title: String = ""
     @State private var note: String = ""
@@ -23,6 +24,7 @@ struct TaskEditorSheet: View {
     @State private var subtaskDrafts: [SubtaskDraft] = []
     @State private var newSubtaskText: String = ""
     @State private var whenPopoverOpen: Bool = false
+    @State private var assigneeIds: Set<String> = []
     @FocusState private var focus: Field?
 
     fileprivate enum Field: Hashable { case title, note, newSubtask, subtask(UUID) }
@@ -48,6 +50,7 @@ struct TaskEditorSheet: View {
                         durationSection
                         categorySection
                         statusSection
+                        assigneesSection
                         noteSection
                         subtasksSection
                     }
@@ -292,6 +295,67 @@ struct TaskEditorSheet: View {
         }
     }
 
+    // MARK: – Assignees
+
+    private var assigneesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                sectionLabel("Исполнители")
+                Spacer()
+                if !assigneeIds.isEmpty {
+                    Text("\(assigneeIds.count) выбрано")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(VibePlanTheme.ink400)
+                }
+            }
+            if roster.members.isEmpty {
+                HStack(spacing: 6) {
+                    if roster.loading { ProgressView().controlSize(.small) }
+                    Text(roster.loading ? "Загружаем команду…" : "В команде пока никого нет — добавьте email в Settings → Аккаунт → Admin (через бэкенд)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(VibePlanTheme.ink500)
+                }
+                .padding(.vertical, 4)
+            } else {
+                FlowLayout(spacing: 6) {
+                    ForEach(roster.members) { m in
+                        Button(action: { toggleAssignee(m.id) }) {
+                            HStack(spacing: 7) {
+                                AvatarBadge(name: m.name, email: m.email, size: 18)
+                                Text(memberLabel(m))
+                                    .font(.system(size: 12.5, weight: .medium))
+                                if assigneeIds.contains(m.id) {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                            }
+                            .foregroundStyle(assigneeIds.contains(m.id) ? .white : VibePlanTheme.ink700)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(assigneeIds.contains(m.id) ? VibePlanTheme.ink900 : Color.white.opacity(0.7))
+                            )
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .stroke(assigneeIds.contains(m.id) ? Color.clear : Color.black.opacity(0.06))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func toggleAssignee(_ id: String) {
+        if assigneeIds.contains(id) { assigneeIds.remove(id) } else { assigneeIds.insert(id) }
+    }
+
+    private func memberLabel(_ m: TeamMemberDTO) -> String {
+        m.name.isEmpty ? m.email : m.name
+    }
+
     // MARK: – Note
 
     private var noteSection: some View {
@@ -496,6 +560,7 @@ struct TaskEditorSheet: View {
             subtaskDrafts = task.subtasks
                 .sorted { $0.order < $1.order }
                 .map { SubtaskDraft(title: $0.title, done: $0.done) }
+            assigneeIds = Set(task.assignees.map(\.userId))
         }
     }
 
@@ -514,6 +579,7 @@ struct TaskEditorSheet: View {
             task.subtasks = subtaskDrafts.enumerated().map { idx, d in
                 Subtask(title: d.title, done: d.done, order: idx)
             }
+            task.assignees = assignees(for: assigneeIds)
             ctx.insert(task)
             try? ctx.save()
             sync.pushCreate(task)
@@ -529,6 +595,7 @@ struct TaskEditorSheet: View {
             task.subtasks = subtaskDrafts.enumerated().map { idx, d in
                 Subtask(title: d.title, done: d.done, order: idx)
             }
+            task.assignees = assignees(for: assigneeIds)
             try? ctx.save()
             sync.pushUpdate(task)
         }
@@ -543,6 +610,13 @@ struct TaskEditorSheet: View {
             sync.pushDelete(serverId: sid)
         }
         dismiss()
+    }
+
+    private func assignees(for ids: Set<String>) -> [TaskAssignee] {
+        ids.compactMap { id -> TaskAssignee? in
+            guard let m = roster.member(byId: id) else { return nil }
+            return TaskAssignee(userId: m.id, email: m.email, name: m.name)
+        }
     }
 
     private func mergeDateAndTime() -> Date {

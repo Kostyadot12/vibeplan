@@ -149,7 +149,8 @@ private extension TaskCreatePayload {
             inInbox: task.inInbox,
             subtasks: task.subtasks.sorted { $0.order < $1.order }.map {
                 SubtaskCreatePayload(title: $0.title, done: $0.done, order: $0.order)
-            }
+            },
+            assigneeIds: task.assignees.map(\.userId)
         )
     }
 }
@@ -167,13 +168,14 @@ private extension TaskPatchPayload {
             inInbox: task.inInbox,
             subtasks: task.subtasks.sorted { $0.order < $1.order }.map {
                 SubtaskCreatePayload(title: $0.title, done: $0.done, order: $0.order)
-            }
+            },
+            assigneeIds: task.assignees.map(\.userId)
         )
     }
 }
 
 extension PlanTask {
-    fileprivate static func fromRemote(_ r: TaskDTO) -> PlanTask {
+    static func fromRemote(_ r: TaskDTO) -> PlanTask {
         let task = PlanTask(
             title: r.title,
             note: r.note,
@@ -188,10 +190,13 @@ extension PlanTask {
         task.subtasks = r.subtasks.map {
             Subtask(title: $0.title, done: $0.done, order: $0.order, serverId: $0.id)
         }
+        task.assignees = r.assignees.map {
+            TaskAssignee(userId: $0.id, email: $0.email, name: $0.name)
+        }
         return task
     }
 
-    fileprivate func apply(_ r: TaskDTO) {
+    func apply(_ r: TaskDTO) {
         self.title = r.title
         self.note = r.note
         self.startDate = r.startDate
@@ -200,10 +205,12 @@ extension PlanTask {
         self.status   = PlanStatus(rawValue: r.status)   ?? .open
         self.sortOrder = r.sortOrder
         self.inInbox = r.inInbox
-        // Replace-all for subtasks (simplest, matches backend semantics)
-        // Note: SwiftData will cascade-delete via the @Relationship rule.
+        // Replace-all for subtasks/assignees (matches backend semantics)
         self.subtasks = r.subtasks.map {
             Subtask(title: $0.title, done: $0.done, order: $0.order, serverId: $0.id)
+        }
+        self.assignees = r.assignees.map {
+            TaskAssignee(userId: $0.id, email: $0.email, name: $0.name)
         }
     }
 }

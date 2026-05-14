@@ -3,6 +3,7 @@ import SwiftData
 
 struct DayPanelView: View {
     let date: Date
+    let searchQuery: String
     let onEdit: (PlanTask) -> Void
     let onAddTap: () -> Void
 
@@ -16,8 +17,21 @@ struct DayPanelView: View {
 
     private var dayTasks: [PlanTask] {
         allTasks
-            .filter { !$0.inInbox && CalendarUtil.isSameDay($0.startDate, date) }
+            .filter {
+                !$0.inInbox
+                && CalendarUtil.isSameDay($0.startDate, date)
+                && matchesSearch($0)
+            }
             .sorted { $0.startDate < $1.startDate }
+    }
+
+    private func matchesSearch(_ task: PlanTask) -> Bool {
+        let q = searchQuery.trimmingCharacters(in: .whitespaces).lowercased()
+        if q.isEmpty { return true }
+        if task.title.lowercased().contains(q) { return true }
+        if task.note.lowercased().contains(q)  { return true }
+        if task.assignees.contains(where: { $0.name.lowercased().contains(q) || $0.email.lowercased().contains(q) }) { return true }
+        return false
     }
 
     var body: some View {
@@ -247,6 +261,13 @@ struct TaskCardView: View {
                     HStack(spacing: 8) {
                         CategoryTag(category: task.category)
                         Spacer()
+                        if !task.assignees.isEmpty {
+                            AvatarStack(
+                                people: task.assignees.map { ($0.name, $0.email) },
+                                maxVisible: 3,
+                                size: 20
+                            )
+                        }
                     }
                     .padding(.top, 4)
                 }

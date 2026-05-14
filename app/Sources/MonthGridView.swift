@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct MonthGridView: View {
     @Binding var monthAnchor: Date
     @Binding var selectedDate: Date
+    let searchQuery: String
 
     @Environment(\.modelContext) private var ctx
     @Environment(DragState.self) private var dragState
@@ -123,8 +124,17 @@ struct MonthGridView: View {
 
     private func tasks(on date: Date) -> [PlanTask] {
         allTasks
-            .filter { !$0.inInbox && CalendarUtil.isSameDay($0.startDate, date) }
+            .filter { !$0.inInbox && CalendarUtil.isSameDay($0.startDate, date) && matches(searchQuery, $0) }
             .sorted { $0.startDate < $1.startDate }
+    }
+
+    private func matches(_ query: String, _ task: PlanTask) -> Bool {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        if q.isEmpty { return true }
+        if task.title.lowercased().contains(q) { return true }
+        if task.note.lowercased().contains(q)  { return true }
+        if task.assignees.contains(where: { $0.name.lowercased().contains(q) || $0.email.lowercased().contains(q) }) { return true }
+        return false
     }
 
     private var monthName: String {

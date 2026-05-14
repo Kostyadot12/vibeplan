@@ -21,7 +21,8 @@ export const TaskCreateInput = z.object({
   status:           Status.default("open"),
   sortOrder:        z.number().int().default(0),
   inInbox:          z.boolean().default(false),
-  subtasks:         z.array(SubtaskInput).default([])
+  subtasks:         z.array(SubtaskInput).default([]),
+  assigneeIds:      z.array(z.string()).default([])
 });
 
 export const TaskPatchInput = z.object({
@@ -33,7 +34,8 @@ export const TaskPatchInput = z.object({
   status:           Status.optional(),
   sortOrder:        z.number().int().optional(),
   inInbox:          z.boolean().optional(),
-  subtasks:         z.array(SubtaskInput).optional()
+  subtasks:         z.array(SubtaskInput).optional(),
+  assigneeIds:      z.array(z.string()).optional()
 });
 
 export type TaskCreate = z.infer<typeof TaskCreateInput>;
