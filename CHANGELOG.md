@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.8.0 — Auto-update без потери данных
+
+Кастомный апдейтер в дизайне приложения. Никакой Sparkle.
+
+- **`UpdateChecker`** (`@Observable`) — при запуске и каждые 6 часов опрашивает
+  `api.github.com/repos/Kostyadot12/vibeplan/releases/latest`, парсит SemVer,
+  сравнивает с `CFBundleShortVersionString` текущего bundle'а
+- **`UpdateSheet`** — модалка в нашем cream-стиле:
+  - Тёмная брендовая иконка с arrow.down.circle.fill
+  - «VibePlan x.y.z · сейчас x.y.z» + размер DMG в МБ
+  - Раздел «Что нового» с release notes из тела GitHub-релиза
+  - Кнопка «Скачать и установить» с градиентом
+  - Прогресс-бар со счётчиком процентов во время скачивания
+  - `interactiveDismissDisabled(true)` — нельзя закрыть свайпом или Esc
+- **`Updater`** (`@MainActor @Observable`):
+  - URLSessionDownloadTask + KVO `fractionCompleted` для прогресса
+  - `hdiutil attach -plist -nobrowse -noverify` + парсинг plist для
+    точки монтирования (правильно отлавливает /Volumes/VibePlan-1 и т.п.)
+  - Bash helper: `sleep 2 && cp -R /Volumes/VibePlan/VibePlan.app
+    /Applications/ && xattr -dr com.apple.quarantine ... && hdiutil
+    detach && open` — снимает Gatekeeper-карантин и перезапускает
+  - `NSApp.terminate(nil)` — наш процесс уходит, helper делает работу
+
+### Что сохраняется при обновлении
+
+- **JWT** (Keychain — keyed by service `app.vibeplan.macos`) ✓
+- **Все настройки** (UserDefaults в `~/Library/Preferences/`) ✓
+- **Все задачи / пространства / метки** (SwiftData в `~/Library/Application Support/`) ✓
+- **Position scope, server URL, clientId для WS echo prevention** ✓
+
+bundle id остаётся `app.vibeplan.macos` — macOS ассоциирует все данные
+именно по нему, физическая замена `.app` файла ничего не теряет.
+
 ## 0.7.0 — Файлы, комментарии, метки, напоминания, активность
 
 Большая итерация — продакшн-функционал командного таскера.

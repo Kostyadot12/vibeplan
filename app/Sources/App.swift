@@ -12,6 +12,8 @@ struct VibePlanApp: App {
     @State private var spacesRoster: SpacesRoster
     @State private var tagsRoster: TagsRoster
     @State private var activityFeed: ActivityFeed
+    @State private var updateChecker: UpdateChecker
+    @State private var updater: Updater
 
     init() {
         do {
@@ -40,14 +42,18 @@ struct VibePlanApp: App {
         let sp   = SpacesRoster(auth: auth, settings: settings)
         let tg   = TagsRoster(auth: auth, settings: settings)
         let af   = ActivityFeed(auth: auth, settings: settings)
-        _auth         = State(initialValue: auth)
-        _settings     = State(initialValue: settings)
-        _sync         = State(initialValue: sync)
-        _realtime     = State(initialValue: rt)
-        _roster       = State(initialValue: rost)
-        _spacesRoster = State(initialValue: sp)
-        _tagsRoster   = State(initialValue: tg)
-        _activityFeed = State(initialValue: af)
+        let uc   = UpdateChecker()
+        let up   = Updater()
+        _auth          = State(initialValue: auth)
+        _settings      = State(initialValue: settings)
+        _sync          = State(initialValue: sync)
+        _realtime      = State(initialValue: rt)
+        _roster        = State(initialValue: rost)
+        _spacesRoster  = State(initialValue: sp)
+        _tagsRoster    = State(initialValue: tg)
+        _activityFeed  = State(initialValue: af)
+        _updateChecker = State(initialValue: uc)
+        _updater       = State(initialValue: up)
     }
 
     var body: some Scene {
@@ -61,6 +67,8 @@ struct VibePlanApp: App {
                 .environment(spacesRoster)
                 .environment(tagsRoster)
                 .environment(activityFeed)
+                .environment(updateChecker)
+                .environment(updater)
                 .frame(minWidth: 1100, minHeight: 720)
                 .preferredColorScheme(.light)   // user chose «только светлая» — force it
                 .tint(VibePlanTheme.ink900)
@@ -68,6 +76,7 @@ struct VibePlanApp: App {
                     realtime.spacesRoster = spacesRoster
                     realtime.tagsRoster   = tagsRoster
                     await Notifier.requestAuthorizationIfNeeded()
+                    updateChecker.startPolling()
                     if auth.isAuthenticated {
                         spacesRoster.restoreScope()
                         await sync.fullSync()
@@ -91,11 +100,12 @@ struct VibePlanApp: App {
 
 /// Routes between login screen and the main calendar based on auth state.
 private struct RootView: View {
-    @Environment(AuthState.self)      private var auth
-    @Environment(SyncEngine.self)     private var sync
-    @Environment(RealtimeClient.self) private var realtime
-    @Environment(TeamRoster.self)     private var roster
-    @Environment(SpacesRoster.self)   private var spacesRoster
+    @Environment(AuthState.self)       private var auth
+    @Environment(SyncEngine.self)      private var sync
+    @Environment(RealtimeClient.self)  private var realtime
+    @Environment(TeamRoster.self)      private var roster
+    @Environment(SpacesRoster.self)    private var spacesRoster
+    @Environment(UpdateChecker.self)   private var updateChecker
 
     var body: some View {
         Group {
@@ -104,6 +114,15 @@ private struct RootView: View {
             } else {
                 LoginView()
             }
+        }
+        // Mandatory update sheet — sits above EVERYTHING (auth or main UI)
+        // and cannot be dismissed. Only path forward is to install or ⌘Q.
+        .sheet(item: Binding(
+            get: { updateChecker.available },
+            set: { _ in /* read-only — checker drives this */ }
+        )) { release in
+            UpdateSheet(release: release)
+                .frame(minWidth: 540, minHeight: 540)
         }
         .onChange(of: auth.isAuthenticated) { _, nowAuthed in
             if nowAuthed {
