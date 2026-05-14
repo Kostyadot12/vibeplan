@@ -6,13 +6,17 @@ import type { WebSocket } from "@fastify/websocket";
 import type { TaskDTO, SpaceDTO } from "./dto.js";
 
 export type RealtimeEvent =
-  | { type: "task.created";  task: TaskDTO; originClientId: string | null }
-  | { type: "task.updated";  task: TaskDTO; originClientId: string | null }
-  | { type: "task.deleted";  id:   string;  originClientId: string | null }
-  | { type: "space.created"; space: SpaceDTO }
-  | { type: "space.updated"; space: SpaceDTO }
-  | { type: "space.deleted"; id:    string }
-  | { type: "hello";         userId: string }
+  | { type: "task.created";    task: TaskDTO; originClientId: string | null }
+  | { type: "task.updated";    task: TaskDTO; originClientId: string | null }
+  | { type: "task.deleted";    id:   string;  originClientId: string | null }
+  | { type: "space.created";   space: SpaceDTO }
+  | { type: "space.updated";   space: SpaceDTO }
+  | { type: "space.deleted";   id:    string }
+  | { type: "comment.created"; comment: { id: string; taskId: string; authorId: string | null; body: string; createdAt: string; updatedAt: string }; originClientId: string | null }
+  | { type: "comment.deleted"; id: string; taskId: string; originClientId: string | null }
+  | { type: "tag.created";     tag: { id: string; name: string; color: string; spaceId: string | null; ownerId: string | null } }
+  | { type: "tag.deleted";     id:  string }
+  | { type: "hello";           userId: string }
   | { type: "ping" };
 
 interface Client {

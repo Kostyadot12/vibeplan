@@ -35,9 +35,45 @@ struct TaskDTO: Codable {
     let createdAt: Date
     let updatedAt: Date
     let creatorId: String?
-    let spaceId:   String?
+    let spaceId: String?
+    let reminderMinutes: Int?
     let subtasks: [SubtaskDTO]
     let assignees: [AssigneeDTO]
+    let attachments: [AttachmentDTO]
+    let tagIds: [String]
+}
+
+struct CommentDTO: Codable, Hashable, Identifiable {
+    let id: String
+    let taskId: String
+    let authorId: String?
+    let body: String
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+struct TagDTO: Codable, Hashable, Identifiable {
+    let id: String
+    let name: String
+    let color: String
+    let spaceId: String?
+    let ownerId: String?
+}
+
+struct TagCreatePayload: Encodable {
+    let name: String
+    let color: String
+    let spaceId: String?
+}
+
+struct ActivityEventDTO: Codable, Hashable, Identifiable {
+    let id: String
+    let spaceId: String?
+    let actorId: String?
+    let taskId: String?
+    let kind: String
+    let summary: String
+    let createdAt: Date
 }
 
 struct SubtaskDTO: Codable {
@@ -45,6 +81,16 @@ struct SubtaskDTO: Codable {
     let title: String
     let done: Bool
     let order: Int
+}
+
+struct AttachmentDTO: Codable, Hashable, Identifiable {
+    let id: String
+    let filename: String
+    let mimeType: String
+    let sizeBytes: Int
+    let url: String
+    let uploadedAt: Date
+    let uploadedById: String?
 }
 
 struct AssigneeDTO: Codable, Hashable {
@@ -65,8 +111,10 @@ struct TaskCreatePayload: Encodable {
     let sortOrder: Int
     let inInbox: Bool
     let spaceId: String?
+    let reminderMinutes: Int?
     let subtasks: [SubtaskCreatePayload]
     let assigneeIds: [String]
+    let tagIds: [String]
 }
 
 struct SubtaskCreatePayload: Encodable {
@@ -85,13 +133,16 @@ struct TaskPatchPayload: Encodable {
     var status: String?
     var sortOrder: Int?
     var inInbox: Bool?
-    var spaceId: String??     // Double-optional so we can patch to null explicitly
+    var spaceId: String??       // Double-optional so we can patch to null explicitly
+    var reminderMinutes: Int??
     var subtasks: [SubtaskCreatePayload]?
     var assigneeIds: [String]?
+    var tagIds: [String]?
 
     enum CodingKeys: String, CodingKey {
         case title, note, startDate, durationMinutes, category, status
-        case sortOrder, inInbox, spaceId, subtasks, assigneeIds
+        case sortOrder, inInbox, spaceId, reminderMinutes
+        case subtasks, assigneeIds, tagIds
     }
 
     func encode(to encoder: Encoder) throws {
@@ -104,13 +155,17 @@ struct TaskPatchPayload: Encodable {
         try c.encodeIfPresent(status, forKey: .status)
         try c.encodeIfPresent(sortOrder, forKey: .sortOrder)
         try c.encodeIfPresent(inInbox, forKey: .inInbox)
-        // Double-optional: emit only if outer set; emit explicit null if inner nil
         if let inner = spaceId {
             if let v = inner { try c.encode(v, forKey: .spaceId) }
             else { try c.encodeNil(forKey: .spaceId) }
         }
+        if let inner = reminderMinutes {
+            if let v = inner { try c.encode(v, forKey: .reminderMinutes) }
+            else { try c.encodeNil(forKey: .reminderMinutes) }
+        }
         try c.encodeIfPresent(subtasks, forKey: .subtasks)
         try c.encodeIfPresent(assigneeIds, forKey: .assigneeIds)
+        try c.encodeIfPresent(tagIds, forKey: .tagIds)
     }
 }
 

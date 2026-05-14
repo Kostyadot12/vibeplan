@@ -11,6 +11,7 @@ struct MainWindowView: View {
     @State private var dragState = DragState()
     @State private var inboxExpanded: Bool = false
     @State private var settingsOpen: Bool = false
+    @State private var activityOpen: Bool = false
     @State private var searchQuery: String = ""
     @State private var spaceSheetMode: SpaceSheetMode?
     @State private var profileUserId: String?
@@ -26,6 +27,7 @@ struct MainWindowView: View {
                     onToday: goToToday,
                     onAdd: { addingForDate = selectedDate },
                     onSettings: { settingsOpen = true },
+                    onActivity: { activityOpen = true },
                     onCreateSpace: { spaceSheetMode = .create },
                     onManageSpace: { id in spaceSheetMode = .manage(spaceId: id) }
                 )
@@ -76,6 +78,9 @@ struct MainWindowView: View {
         .sheet(isPresented: $settingsOpen) {
             SettingsSheet().frame(minWidth: 520, minHeight: 480)
         }
+        .sheet(isPresented: $activityOpen) {
+            ActivityFeedSheet().frame(minWidth: 480, minHeight: 560)
+        }
         .sheet(item: $spaceSheetMode) { mode in
             SpaceSheet(mode: mode).frame(minWidth: 520, minHeight: 560)
         }
@@ -111,6 +116,7 @@ private struct ToolbarBar: View {
     let onToday: () -> Void
     let onAdd: () -> Void
     let onSettings: () -> Void
+    let onActivity: () -> Void
     let onCreateSpace: () -> Void
     let onManageSpace: (String) -> Void
 
@@ -173,6 +179,17 @@ private struct ToolbarBar: View {
             .shadow(color: .black.opacity(0.18), radius: 6, x: 0, y: 3)
             .keyboardShortcut("n", modifiers: [.command])
 
+            Button(action: onActivity) {
+                Image(systemName: "bell")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(VibePlanTheme.ink700)
+                    .frame(width: 30, height: 30)
+                    .background(Color.white.opacity(0.85), in: Circle())
+                    .overlay(Circle().stroke(Color.black.opacity(0.06)))
+            }
+            .buttonStyle(.plain)
+            .help("Активность команды")
+
             Button(action: onSettings) {
                 UserBadge(user: auth.user, size: 30)
                     .overlay(
@@ -219,12 +236,15 @@ private struct ToolbarBar: View {
             Button(action: { spacesRoster.scope = .personal }) {
                 Label("Личные", systemImage: "person.fill")
             }
+            .keyboardShortcut("1", modifiers: [.command])
+
             if !spacesRoster.spaces.isEmpty {
                 Divider()
-                ForEach(spacesRoster.spaces) { s in
+                ForEach(Array(spacesRoster.spaces.enumerated()), id: \.element.id) { idx, s in
                     Button(action: { spacesRoster.scope = .space(s.id) }) {
                         Label(s.name, systemImage: "folder.fill")
                     }
+                    .keyboardShortcut(KeyEquivalent(Character("\(idx + 2)")), modifiers: [.command])
                 }
             }
             Divider()

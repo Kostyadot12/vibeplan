@@ -16,14 +16,42 @@ export interface TaskDTO {
   updatedAt: string;
   creatorId: string | null;
   spaceId:   string | null;   // NULL = personal (creator only)
+  reminderMinutes: number | null;
   subtasks: SubtaskDTO[];
   assignees: AssigneeDTO[];
+  attachments: AttachmentDTO[];
+  tagIds: string[];
 }
 
 export interface AssigneeDTO {
   id: string;
   email: string;
   name: string;
+}
+
+export interface AttachmentDTO {
+  id: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  url: string;          // /uploads/attachments/...
+  uploadedAt: string;
+  uploadedById: string | null;
+}
+
+export function attachmentToDTO(a: {
+  id: string; filename: string; mimeType: string; sizeBytes: number;
+  storagePath: string; uploadedAt: Date; uploadedById: string | null;
+}): AttachmentDTO {
+  return {
+    id: a.id,
+    filename: a.filename,
+    mimeType: a.mimeType,
+    sizeBytes: a.sizeBytes,
+    url: a.storagePath,
+    uploadedAt: a.uploadedAt.toISOString(),
+    uploadedById: a.uploadedById
+  };
 }
 
 export interface SpaceDTO {
@@ -80,8 +108,13 @@ export function taskToDTO(t: {
   sortOrder: number; inInbox: boolean;
   createdAt: Date; updatedAt: Date;
   creatorId: string | null; spaceId: string | null;
+  reminderMinutes: number | null;
   subtasks: { id: string; title: string; done: boolean; order: number }[];
   assignees: { user: { id: string; email: string; name: string } }[];
+  attachments: { id: string; filename: string; mimeType: string;
+                 sizeBytes: number; storagePath: string;
+                 uploadedAt: Date; uploadedById: string | null }[];
+  tags: { tagId: string }[];
 }): TaskDTO {
   return {
     id: t.id,
@@ -97,12 +130,15 @@ export function taskToDTO(t: {
     updatedAt: t.updatedAt.toISOString(),
     creatorId: t.creatorId,
     spaceId:   t.spaceId,
+    reminderMinutes: t.reminderMinutes,
     subtasks: t.subtasks
       .slice()
       .sort((a, b) => a.order - b.order)
       .map(s => ({ id: s.id, title: s.title, done: s.done, order: s.order })),
     assignees: t.assignees.map(a => ({
       id: a.user.id, email: a.user.email, name: a.user.name
-    }))
+    })),
+    attachments: t.attachments.map(attachmentToDTO),
+    tagIds: t.tags.map(tt => tt.tagId)
   };
 }

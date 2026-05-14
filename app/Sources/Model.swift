@@ -23,11 +23,25 @@ final class PlanTask {
     /// Server id of the user who created this task.
     var creatorServerId: String? = nil
 
+    /// Minutes before startDate to fire a local notification. nil = no reminder.
+    var reminderMinutes: Int? = nil
+
     @Relationship(deleteRule: .cascade)
     var subtasks: [Subtask] = []
 
     @Relationship(deleteRule: .cascade)
     var assignees: [TaskAssignee] = []
+
+    @Relationship(deleteRule: .cascade)
+    var attachments: [TaskAttachment] = []
+
+    @Relationship(deleteRule: .cascade)
+    var comments: [TaskComment] = []
+
+    /// Tag ids selected for this task. Stored as denormalized strings so we
+    /// don't need a join table locally; the canonical roster lives in
+    /// `TagsRoster` (cached from the server).
+    var tagIds: [String] = []
 
     init(
         title: String,
@@ -123,6 +137,43 @@ final class Space {
 
     var color: PlanCategory {
         PlanCategory(rawValue: colorRaw) ?? .work
+    }
+}
+
+@Model
+final class TaskComment {
+    var serverId: String
+    var authorId: String?
+    var body: String
+    var createdAt: Date
+
+    init(serverId: String, authorId: String?, body: String, createdAt: Date) {
+        self.serverId = serverId
+        self.authorId = authorId
+        self.body = body
+        self.createdAt = createdAt
+    }
+}
+
+@Model
+final class TaskAttachment {
+    var serverId: String
+    var filename: String
+    var mimeType: String
+    var sizeBytes: Int
+    var url: String        // path under /uploads/attachments/...
+    var uploadedAt: Date
+    var uploadedById: String?
+
+    init(serverId: String, filename: String, mimeType: String, sizeBytes: Int,
+         url: String, uploadedAt: Date, uploadedById: String? = nil) {
+        self.serverId = serverId
+        self.filename = filename
+        self.mimeType = mimeType
+        self.sizeBytes = sizeBytes
+        self.url = url
+        self.uploadedAt = uploadedAt
+        self.uploadedById = uploadedById
     }
 }
 

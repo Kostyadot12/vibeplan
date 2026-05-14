@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.7.0 — Файлы, комментарии, метки, напоминания, активность
+
+Большая итерация — продакшн-функционал командного таскера.
+
+### Файловые вложения
+- Backend: `Attachment` модель, multipart-upload через `@fastify/multipart`,
+  static-доступ через `/uploads/attachments/...`. Любой тип, до 10 МБ
+- App: секция «Файлы» в редакторе, кнопка «Добавить файл» (NSOpenPanel),
+  иконки по типу (PDF/изображения/таблицы/Word/архивы), скачивание/удаление
+- Прогноз размера в строке файла (КБ/МБ)
+
+### Комментарии на задачах
+- Backend: `Comment` модель + `POST/GET/DELETE /tasks/:id/comments`,
+  WS-broadcast `comment.created/deleted` всем members'ам
+- App: thread в редакторе с аватарами авторов, дата, удаление своих
+- Реалтайм: чужие комменты прилетают сразу
+
+### Метки (Tags) — гибкая M:N
+- Backend: `Tag` модель (color из палитры категорий), scope = space/personal,
+  `TaskTag` join, CRUD-роуты + WS события
+- App: chip-row в редакторе, «+» для создания новой метки прямо из редактора
+- TagsRoster (@Observable) кэширует, обновляется по WS
+
+### Напоминания (Reminders)
+- Backend: `Task.reminderMinutes: Int?` (минуты до start)
+- App: chip-ряд «не нужно / 5 / 15 / 30 / 1ч / 2ч / сутки» в редакторе
+- Локальное планирование через `UNCalendarNotificationTrigger` (`Notifier`)
+- `ReminderScheduler.rescheduleAll` после fullSync и каждого save
+
+### Лента активности
+- Backend: `ActivityEvent` модель, append-only лог (task.created,
+  comment.created), скоупится по space membership
+- App: bell-кнопка в тулбаре → ActivityFeedSheet с аватарами actor'ов
+
+### Keyboard shortcuts
+- ⌘1 — переключиться на «Личные»
+- ⌘2/⌘3/⌘4… — переключение между пространствами по порядку
+
+### Что отложено в v0.8
+- Recurring tasks (повторяющиеся) — нужен правильный RRULE/cron-движок
+- Drag time slot в таймлайне — нужна аккуратная gesture-работа
+- Голосовой ассистент — отдельный Phase 8 (микрофон + LLM пайплайн)
+
 ## 0.6.0 — Профили + видимый автор + inline-edit + системные уведомления
 
 ### Backend

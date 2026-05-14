@@ -6,7 +6,9 @@ import { taskToDTO, type TaskDTO } from "../dto.js";
 
 const includeAll = {
   subtasks: { orderBy: { order: "asc" as const } },
-  assignees: { include: { user: { select: { id: true, email: true, name: true } } } }
+  assignees: { include: { user: { select: { id: true, email: true, name: true } } } },
+  attachments: { orderBy: { uploadedAt: "asc" as const } },
+  tags: { select: { tagId: true } }
 };
 
 /**
@@ -106,7 +108,7 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.badRequest(parsed.error.issues.map(i => i.message).join("; "));
     }
-    const { subtasks, assigneeIds, spaceId, ...task } = parsed.data;
+    const { subtasks, assigneeIds, spaceId, tagIds, reminderMinutes, ...task } = parsed.data;
     const me = req.user.sub;
     const originClientId = (req.headers["x-client-id"] as string | undefined) ?? null;
 
@@ -124,6 +126,7 @@ export async function taskRoutes(app: FastifyInstance) {
         startDate: new Date(task.startDate),
         creatorId: me,
         spaceId:   spaceId ?? null,
+        reminderMinutes: reminderMinutes ?? null,
         subtasks: subtasks.length
           ? { create: subtasks.map((s, idx) => ({
               title: s.title, done: s.done, order: s.order ?? idx
@@ -131,9 +134,21 @@ export async function taskRoutes(app: FastifyInstance) {
           : undefined,
         assignees: assigneeIds.length
           ? { create: assigneeIds.map(uid => ({ userId: uid })) }
+          : undefined,
+        tags: tagIds.length
+          ? { create: tagIds.map(tid => ({ tagId: tid })) }
           : undefined
       },
       include: includeAll
+    });
+
+    // Activity log
+    await db.activityEvent.create({
+      data: {
+        spaceId: created.spaceId, actorId: me, taskId: created.id,
+        kind: "task.created",
+        summary: `создал задачу «${created.title}»`
+      }
     });
     const dto = taskToDTO(created);
     const audience = await audienceForTask(created);
@@ -155,9 +170,10 @@ export async function taskRoutes(app: FastifyInstance) {
     if (!existing) return reply.notFound("Task not found");
     if (!(await userCanAccessTask(me, existing))) return reply.forbidden();
 
-    const { subtasks, assigneeIds, spaceId, ...rest } = parsed.data;
+    const { subtasks, assigneeIds, spaceId, tagIds, reminderMinutes, ...rest } = parsed.data;
     const data: Record<string, unknown> = { ...rest };
     if (rest.startDate) data.startDate = new Date(rest.startDate);
+    if (reminderMinutes !== undefined) data.reminderMinutes = reminderMinutes;
 
     // Moving between spaces / to personal: only creator can do this.
     if (spaceId !== undefined) {
@@ -186,6 +202,12 @@ export async function taskRoutes(app: FastifyInstance) {
         await db.taskAssignee.deleteMany({ where: { taskId: req.params.id } });
         data.assignees = {
           create: assigneeIds.map(uid => ({ userId: uid }))
+        };
+      }
+      if (tagIds) {
+        await db.taskTag.deleteMany({ where: { taskId: req.params.id } });
+        data.tags = {
+          create: tagIds.map(tid => ({ tagId: tid }))
         };
       }
       const updated = await db.task.update({

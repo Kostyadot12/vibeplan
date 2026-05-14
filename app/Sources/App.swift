@@ -10,11 +10,15 @@ struct VibePlanApp: App {
     @State private var realtime: RealtimeClient
     @State private var roster: TeamRoster
     @State private var spacesRoster: SpacesRoster
+    @State private var tagsRoster: TagsRoster
+    @State private var activityFeed: ActivityFeed
 
     init() {
         do {
             container = try ModelContainer(
-                for: PlanTask.self, Subtask.self, TaskAssignee.self, Space.self, SpaceMember.self
+                for: PlanTask.self, Subtask.self, TaskAssignee.self,
+                    TaskAttachment.self, TaskComment.self,
+                    Space.self, SpaceMember.self
             )
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
@@ -34,12 +38,16 @@ struct VibePlanApp: App {
         let rt   = RealtimeClient(auth: auth, settings: settings, container: container)
         let rost = TeamRoster(auth: auth, settings: settings)
         let sp   = SpacesRoster(auth: auth, settings: settings)
+        let tg   = TagsRoster(auth: auth, settings: settings)
+        let af   = ActivityFeed(auth: auth, settings: settings)
         _auth         = State(initialValue: auth)
         _settings     = State(initialValue: settings)
         _sync         = State(initialValue: sync)
         _realtime     = State(initialValue: rt)
         _roster       = State(initialValue: rost)
         _spacesRoster = State(initialValue: sp)
+        _tagsRoster   = State(initialValue: tg)
+        _activityFeed = State(initialValue: af)
     }
 
     var body: some Scene {
@@ -51,18 +59,23 @@ struct VibePlanApp: App {
                 .environment(realtime)
                 .environment(roster)
                 .environment(spacesRoster)
+                .environment(tagsRoster)
+                .environment(activityFeed)
                 .frame(minWidth: 1100, minHeight: 720)
                 .preferredColorScheme(.light)   // user chose «только светлая» — force it
                 .tint(VibePlanTheme.ink900)
                 .task { @MainActor in
                     realtime.spacesRoster = spacesRoster
+                    realtime.tagsRoster   = tagsRoster
                     await Notifier.requestAuthorizationIfNeeded()
                     if auth.isAuthenticated {
                         spacesRoster.restoreScope()
                         await sync.fullSync()
                         await roster.refresh()
                         await spacesRoster.refresh()
+                        await tagsRoster.refresh(scope: spacesRoster.scope)
                         realtime.start()
+                        ReminderScheduler.rescheduleAll(in: container)
                     }
                 }
         }

@@ -23,6 +23,9 @@ model Task {
   status          String   @default("open")
   sortOrder       Int      @default(0)
   inInbox         Boolean  @default(false)
+  // Minutes before startDate to fire a system notification (client-side).
+  // null = no reminder.
+  reminderMinutes Int?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -35,8 +38,11 @@ model Task {
   spaceId String?
   space   Space?  @relation(fields: [spaceId], references: [id], onDelete: SetNull)
 
-  subtasks  Subtask[]
-  assignees TaskAssignee[]
+  subtasks    Subtask[]
+  assignees   TaskAssignee[]
+  attachments Attachment[]
+  comments    Comment[]
+  tags        TaskTag[]
 
   @@index([startDate])
   @@index([inInbox])
@@ -146,4 +152,74 @@ model Subtask {
   task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  taskId       String
+  filename     String
+  mimeType     String
+  sizeBytes    Int
+  storagePath  String   // path under /uploads/attachments/<file>
+  uploadedAt   DateTime @default(now())
+  uploadedById String?
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String?
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+// Free-form colored labels — orthogonal to fixed PlanCategory.
+// Scoped to a space (or null for personal).
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("work")
+  spaceId   String?              // null = personal/global to creator
+  ownerId   String?
+  createdAt DateTime @default(now())
+
+  tasks TaskTag[]
+
+  @@unique([spaceId, name])
+  @@index([spaceId])
+}
+
+model TaskTag {
+  taskId String
+  tagId  String
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId],  references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+  @@index([tagId])
+}
+
+// Append-only feed of recent activity for visibility/social proof.
+model ActivityEvent {
+  id         String   @id @default(cuid())
+  spaceId    String?              // null for personal-task events (only the user sees them)
+  actorId    String?
+  taskId     String?
+  kind       String               // "task.created" | "task.updated" | "task.deleted" |
+                                  //  "comment.created" | "attachment.added" | "space.member.joined"
+  summary    String               // short human-readable line
+  createdAt  DateTime @default(now())
+
+  @@index([spaceId, createdAt])
+  @@index([actorId])
 }

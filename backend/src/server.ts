@@ -12,6 +12,10 @@ import { taskRoutes } from "./routes/tasks.js";
 import { authRoutes } from "./routes/auth.js";
 import { adminRoutes } from "./routes/admin.js";
 import { spaceRoutes } from "./routes/spaces.js";
+import { attachmentRoutes } from "./routes/attachments.js";
+import { commentRoutes } from "./routes/comments.js";
+import { tagRoutes } from "./routes/tags.js";
+import { activityRoutes } from "./routes/activity.js";
 import { wsRoutes } from "./routes/ws.js";
 import { registerAuthDecorators } from "./auth/jwt.js";
 import { bootstrapSeed } from "./seed.js";
@@ -59,6 +63,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(adminRoutes);
   await app.register(spaceRoutes);
   await app.register(taskRoutes);
+  await app.register(attachmentRoutes);
+  await app.register(commentRoutes);
+  await app.register(tagRoutes);
+  await app.register(activityRoutes);
   await app.register(wsRoutes);
 
   await bootstrapSeed(app.log);

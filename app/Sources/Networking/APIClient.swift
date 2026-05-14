@@ -142,6 +142,90 @@ struct APIClient {
         try await get("team")
     }
 
+    // MARK: – Attachments
+
+    /// Multipart upload of a file attached to a task. Returns just the new
+    /// AttachmentDTO; the rest of the task will arrive via WS broadcast.
+    func uploadAttachment(taskId: String, fileURL: URL, mimeType: String) async throws -> AttachmentDTO {
+        guard let url = URL(string: "tasks/\(taskId)/attachments", relativeTo: baseURL) else {
+            throw APIError.invalidURL
+        }
+        let boundary = "----vibeplan-att-\(UUID().uuidString)"
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue(RealtimeClient.clientId, forHTTPHeaderField: "X-Client-Id")
+        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+
+        let data = try Data(contentsOf: fileURL)
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(data)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        req.httpBody = body
+
+        let (respData, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw APIError.http(-1, "no http") }
+        if !(200..<300).contains(http.statusCode) {
+            throw APIError.http(http.statusCode, String(data: respData, encoding: .utf8) ?? "")
+        }
+        let dec = JSONDecoder()
+        dec.dateDecodingStrategy = .custom { decoder in
+            let c = try decoder.singleValueContainer()
+            let s = try c.decode(String.self)
+            let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return f.date(from: s) ?? Date()
+        }
+        return try dec.decode(AttachmentDTO.self, from: respData)
+    }
+
+    func deleteAttachment(id: String) async throws {
+        try await voidDelete("attachments/\(id)")
+    }
+
+    // MARK: – Comments
+
+    func listComments(taskId: String) async throws -> [CommentDTO] {
+        try await get("tasks/\(taskId)/comments")
+    }
+
+    func addComment(taskId: String, body: String) async throws -> CommentDTO {
+        struct Body: Encodable { let body: String }
+        return try await post("tasks/\(taskId)/comments", Body(body: body))
+    }
+
+    func deleteComment(id: String) async throws {
+        try await voidDelete("comments/\(id)")
+    }
+
+    // MARK: – Tags
+
+    func listTags(spaceId: String?) async throws -> [TagDTO] {
+        if let sid = spaceId {
+            return try await get("tags?spaceId=\(sid)")
+        }
+        return try await get("tags")
+    }
+
+    func createTag(name: String, color: String, spaceId: String?) async throws -> TagDTO {
+        try await post("tags", TagCreatePayload(name: name, color: color, spaceId: spaceId))
+    }
+
+    func deleteTag(id: String) async throws {
+        try await voidDelete("tags/\(id)")
+    }
+
+    // MARK: – Activity
+
+    func listActivity(spaceId: String?) async throws -> [ActivityEventDTO] {
+        if let sid = spaceId {
+            return try await get("activity?spaceId=\(sid)")
+        }
+        return try await get("activity")
+    }
+
     // MARK: – Spaces
 
     func listSpaces() async throws -> [SpaceDTO] {

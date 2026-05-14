@@ -23,8 +23,10 @@ export const TaskCreateInput = z.object({
   inInbox:          z.boolean().default(false),
   // null/missing → personal task; otherwise the task lives in this space.
   spaceId:          z.string().nullish(),
+  reminderMinutes:  z.number().int().min(0).max(7 * 24 * 60).nullish(),
   subtasks:         z.array(SubtaskInput).default([]),
-  assigneeIds:      z.array(z.string()).default([])
+  assigneeIds:      z.array(z.string()).default([]),
+  tagIds:           z.array(z.string()).default([])
 });
 
 export const TaskPatchInput = z.object({
@@ -37,8 +39,10 @@ export const TaskPatchInput = z.object({
   sortOrder:        z.number().int().optional(),
   inInbox:          z.boolean().optional(),
   spaceId:          z.string().nullish(),
+  reminderMinutes:  z.number().int().min(0).max(7 * 24 * 60).nullish(),
   subtasks:         z.array(SubtaskInput).optional(),
-  assigneeIds:      z.array(z.string()).optional()
+  assigneeIds:      z.array(z.string()).optional(),
+  tagIds:           z.array(z.string()).optional()
 });
 
 export const SpaceCreateInput = z.object({

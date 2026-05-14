@@ -35,11 +35,11 @@ final class RealtimeClient {
     private var reconnectWork: Task<Void, Never>?
     private var stopped: Bool = false
 
-    /// Optional pointer to the SpacesRoster — set by App.swift so we can apply
-    /// space.* events. Note: not `weak` because @Observable macros don't
-    /// always play well with weak storage; the roster outlives the realtime
-    /// client (both are held by App for the app's lifetime).
+    /// Optional pointers — set by App.swift so we can apply space/tag events.
+    /// Not weak because @Observable macros don't always play well with weak;
+    /// these objects live as long as the app, no retain cycles possible.
     var spacesRoster: SpacesRoster?
+    var tagsRoster:   TagsRoster?
 
     init(auth: AuthState, settings: AppSettings, container: ModelContainer) {
         self.auth = auth
@@ -158,6 +158,20 @@ final class RealtimeClient {
             if let id = envelope["id"] as? String {
                 spacesRoster?.remove(spaceId: id)
             }
+        case "tag.created":
+            if let tagJSON = envelope["tag"],
+               let raw = try? JSONSerialization.data(withJSONObject: tagJSON),
+               let dto = try? JSONDecoder().decode(TagDTO.self, from: raw) {
+                tagsRoster?.upsert(dto)
+            }
+        case "tag.deleted":
+            if let id = envelope["id"] as? String {
+                tagsRoster?.remove(id: id)
+            }
+        case "comment.created", "comment.deleted":
+            // Comments are loaded on-demand when the editor opens — no
+            // local cache to invalidate. Future: refresh editor if open.
+            break
         default:
             break
         }

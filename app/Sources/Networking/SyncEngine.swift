@@ -148,10 +148,12 @@ private extension TaskCreatePayload {
             sortOrder: task.sortOrder,
             inInbox: task.inInbox,
             spaceId: task.spaceServerId,
+            reminderMinutes: task.reminderMinutes,
             subtasks: task.subtasks.sorted { $0.order < $1.order }.map {
                 SubtaskCreatePayload(title: $0.title, done: $0.done, order: $0.order)
             },
-            assigneeIds: task.assignees.map(\.userId)
+            assigneeIds: task.assignees.map(\.userId),
+            tagIds: task.tagIds
         )
     }
 }
@@ -167,11 +169,13 @@ private extension TaskPatchPayload {
             status: task.status.rawValue,
             sortOrder: task.sortOrder,
             inInbox: task.inInbox,
-            spaceId: .some(task.spaceServerId),   // explicit: send even null
+            spaceId: .some(task.spaceServerId),
+            reminderMinutes: .some(task.reminderMinutes),
             subtasks: task.subtasks.sorted { $0.order < $1.order }.map {
                 SubtaskCreatePayload(title: $0.title, done: $0.done, order: $0.order)
             },
-            assigneeIds: task.assignees.map(\.userId)
+            assigneeIds: task.assignees.map(\.userId),
+            tagIds: task.tagIds
         )
     }
 }
@@ -191,11 +195,18 @@ extension PlanTask {
             spaceServerId: r.spaceId,
             creatorServerId: r.creatorId
         )
+        task.reminderMinutes = r.reminderMinutes
+        task.tagIds = r.tagIds
         task.subtasks = r.subtasks.map {
             Subtask(title: $0.title, done: $0.done, order: $0.order, serverId: $0.id)
         }
         task.assignees = r.assignees.map {
             TaskAssignee(userId: $0.id, email: $0.email, name: $0.name, avatarUrl: $0.avatarUrl)
+        }
+        task.attachments = r.attachments.map {
+            TaskAttachment(serverId: $0.id, filename: $0.filename, mimeType: $0.mimeType,
+                           sizeBytes: $0.sizeBytes, url: $0.url, uploadedAt: $0.uploadedAt,
+                           uploadedById: $0.uploadedById)
         }
         return task
     }
@@ -211,12 +222,49 @@ extension PlanTask {
         self.inInbox = r.inInbox
         self.spaceServerId = r.spaceId
         self.creatorServerId = r.creatorId
+        self.reminderMinutes = r.reminderMinutes
+        self.tagIds = r.tagIds
         // Replace-all for subtasks/assignees (matches backend semantics)
         self.subtasks = r.subtasks.map {
             Subtask(title: $0.title, done: $0.done, order: $0.order, serverId: $0.id)
         }
         self.assignees = r.assignees.map {
             TaskAssignee(userId: $0.id, email: $0.email, name: $0.name, avatarUrl: $0.avatarUrl)
+        }
+        self.attachments = r.attachments.map {
+            TaskAttachment(serverId: $0.id, filename: $0.filename, mimeType: $0.mimeType,
+                           sizeBytes: $0.sizeBytes, url: $0.url, uploadedAt: $0.uploadedAt,
+                           uploadedById: $0.uploadedById)
+        }
+    }
+}
+
+// MARK: - Reminder scheduling helper
+
+@MainActor
+enum ReminderScheduler {
+    /// (Re)schedule local notifications for all upcoming tasks with reminderMinutes set.
+    static func rescheduleAll(in container: ModelContainer) {
+        let ctx = ModelContext(container)
+        guard let tasks = try? ctx.fetch(FetchDescriptor<PlanTask>()) else { return }
+        for t in tasks {
+            guard let sid = t.serverId else { continue }
+            let id = Notifier.reminderId(forTaskServerId: sid)
+            guard let mins = t.reminderMinutes, mins > 0 else {
+                Notifier.cancel(identifier: id); continue
+            }
+            let triggerAt = t.startDate.addingTimeInterval(-Double(mins) * 60)
+            if triggerAt > Date() {
+                let f = DateFormatter(); f.dateFormat = "HH:mm"
+                Notifier.schedule(
+                    title: "Скоро: \(t.title)",
+                    body:  "Через \(mins) мин · \(f.string(from: t.startDate))",
+                    at:    triggerAt,
+                    identifier: id
+                )
+            } else {
+                Notifier.cancel(identifier: id)
+            }
         }
     }
 }
