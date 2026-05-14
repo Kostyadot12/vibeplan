@@ -42,8 +42,14 @@ struct DayPanelView: View {
                     .padding(.top, 18)
                     .padding(.bottom, 10)
 
-                timeline
-                    .padding(.horizontal, 18)
+                if dayTasks.isEmpty && !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+                    searchEmptyState
+                } else if dayTasks.isEmpty {
+                    dayEmptyState
+                } else {
+                    timeline
+                        .padding(.horizontal, 18)
+                }
 
                 addButton
                     .padding(.horizontal, 18)
@@ -51,6 +57,41 @@ struct DayPanelView: View {
             }
         }
         .background(Color.white.opacity(0.35))
+    }
+
+    private var dayEmptyState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 26, weight: .light))
+                .foregroundStyle(VibePlanTheme.ink400)
+            Text("Свободный день")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(VibePlanTheme.ink700)
+            Text("Добавьте первую задачу, чтобы\nрасплановать день.")
+                .font(.system(size: 12))
+                .foregroundStyle(VibePlanTheme.ink500)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+    }
+
+    private var searchEmptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(VibePlanTheme.ink400)
+            Text("Ничего не найдено")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(VibePlanTheme.ink700)
+            Text("В этом дне нет задач, подходящих под «\(searchQuery)».")
+                .font(.system(size: 12))
+                .foregroundStyle(VibePlanTheme.ink500)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 30)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 50)
     }
 
     private var header: some View {

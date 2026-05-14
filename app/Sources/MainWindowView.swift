@@ -144,6 +144,7 @@ private struct ToolbarBar: View {
             .buttonStyle(.plain)
             .background(.white.opacity(0.6), in: Capsule())
             .overlay(Capsule().stroke(Color.black.opacity(0.08)))
+            .keyboardShortcut("t", modifiers: [.command])
 
             Button(action: onAdd) {
                 Label("Задача", systemImage: "plus")
@@ -155,6 +156,7 @@ private struct ToolbarBar: View {
             .foregroundStyle(.white)
             .background(VibePlanTheme.ink900, in: Capsule())
             .shadow(color: .black.opacity(0.18), radius: 6, x: 0, y: 3)
+            .keyboardShortcut("n", modifiers: [.command])
 
             Button(action: onSettings) {
                 UserBadge(user: auth.user, size: 30)

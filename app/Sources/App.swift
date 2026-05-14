@@ -28,12 +28,8 @@ struct VibePlanApp: App {
         let auth = AuthState()
         let settings = AppSettings()
         let sync = SyncEngine(auth: auth, settings: settings, container: container)
-        let (rt, rost) = MainActor.assumeIsolated {
-            (
-                RealtimeClient(auth: auth, settings: settings, container: container),
-                TeamRoster(auth: auth, settings: settings)
-            )
-        }
+        let rt   = RealtimeClient(auth: auth, settings: settings, container: container)
+        let rost = TeamRoster(auth: auth, settings: settings)
         _auth     = State(initialValue: auth)
         _settings = State(initialValue: settings)
         _sync     = State(initialValue: sync)
@@ -50,7 +46,7 @@ struct VibePlanApp: App {
                 .environment(realtime)
                 .environment(roster)
                 .frame(minWidth: 1100, minHeight: 720)
-                .task {
+                .task { @MainActor in
                     if auth.isAuthenticated {
                         await sync.fullSync()
                         await roster.refresh()
@@ -85,7 +81,7 @@ private struct RootView: View {
         }
         .onChange(of: auth.isAuthenticated) { _, nowAuthed in
             if nowAuthed {
-                Task {
+                Task { @MainActor in
                     await sync.fullSync()
                     await roster.refresh()
                     realtime.start()

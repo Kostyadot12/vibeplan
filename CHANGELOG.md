@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.1 — fix v0.5.0 build + production polish
+
+- **Fix:** `App.init` no longer wraps RealtimeClient/TeamRoster construction in
+  `MainActor.assumeIsolated { ... }` — that closure was capturing `self.auth`
+  before the `_auth` State backing was assigned, breaking the build.
+  RealtimeClient and TeamRoster are now `@Observable` (not `@MainActor`-class)
+  with `@MainActor` only on the methods/properties that touch UI state.
+- Empty states in DayPanelView: «Свободный день» when no tasks for selected
+  day, «Ничего не найдено» when the search filter wipes everything out.
+- Keyboard shortcuts: ⌘N — новая задача · ⌘T — сегодня · ⌘R — синк сейчас
+- `.task` and `Task { ... }` blocks marked explicitly `@MainActor` to avoid
+  inherited-isolation surprises across Swift toolchains.
+
 ## 0.5.0 — Phase 4.x + 5 + 6 + Polish
 
 ### 4.x — security cleanup

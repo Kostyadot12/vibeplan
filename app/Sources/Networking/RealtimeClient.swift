@@ -6,13 +6,15 @@ import SwiftUI
 /// backoff. Pushes incoming `task.*` events to a callback that applies them
 /// to SwiftData; ignores events that originated from this app instance
 /// (echo prevention via `clientId`).
+///
+/// Public state (`status`, `lastError`) is mutated only on the main actor so
+/// SwiftUI views observing these via `@Observable` see consistent reads.
 @Observable
-@MainActor
 final class RealtimeClient {
     enum Status { case offline, connecting, live }
 
-    private(set) var status: Status = .offline
-    private(set) var lastError: String?
+    @MainActor private(set) var status: Status = .offline
+    @MainActor private(set) var lastError: String?
 
     /// Stable per-installation UUID — used by SyncEngine to label its own
     /// mutations and by the server to echo `originClientId` back. We then
@@ -41,11 +43,13 @@ final class RealtimeClient {
 
     // MARK: – Public API
 
+    @MainActor
     func start() {
         stopped = false
         connect()
     }
 
+    @MainActor
     func stop() {
         stopped = true
         reconnectWork?.cancel()
@@ -57,6 +61,7 @@ final class RealtimeClient {
 
     // MARK: – Connection lifecycle
 
+    @MainActor
     private func connect() {
         guard let token = auth.token else { return }
 
@@ -87,6 +92,7 @@ final class RealtimeClient {
         return components.url
     }
 
+    @MainActor
     private func receive() {
         task?.receive { [weak self] result in
             Task { @MainActor [weak self] in
@@ -102,6 +108,7 @@ final class RealtimeClient {
         }
     }
 
+    @MainActor
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
         guard case .string(let text) = message,
               let data = text.data(using: .utf8) else { return }
@@ -135,12 +142,14 @@ final class RealtimeClient {
         }
     }
 
+    @MainActor
     private func handleFailure(_ error: Error) {
         lastError = (error as? LocalizedError)?.errorDescription ?? "\(error)"
         status = .offline
         if !stopped { scheduleReconnect() }
     }
 
+    @MainActor
     private func scheduleReconnect() {
         reconnectWork?.cancel()
         let attempt = reconnectAttempt
@@ -159,6 +168,7 @@ final class RealtimeClient {
 
     // MARK: – Apply incoming events to SwiftData
 
+    @MainActor
     private func applyUpsert(rawTask data: Data) {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in
@@ -188,6 +198,7 @@ final class RealtimeClient {
         try? ctx.save()
     }
 
+    @MainActor
     private func applyDelete(serverId sid: String) {
         let ctx = ModelContext(container)
         if let target = try? ctx.fetch(FetchDescriptor<PlanTask>(

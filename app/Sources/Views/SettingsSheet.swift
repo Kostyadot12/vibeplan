@@ -155,6 +155,7 @@ struct SettingsSheet: View {
                 .background(.white, in: Capsule())
                 .overlay(Capsule().stroke(Color.black.opacity(0.1)))
                 .disabled(sync.isSyncing)
+                .keyboardShortcut("r", modifiers: [.command])
             }
             .font(.system(size: 12))
         }
