@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 /// Lightweight semantic version. Compare via Comparable.
-struct SemVer: Comparable, CustomStringConvertible {
+struct SemVer: Comparable, Hashable, CustomStringConvertible {
     let major: Int
     let minor: Int
     let patch: Int
