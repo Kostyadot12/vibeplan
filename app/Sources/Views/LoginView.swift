@@ -61,7 +61,6 @@ struct LoginView: View {
             brandMark
             formCard
                 .frame(maxWidth: 380)
-            serverChip
         }
         .padding(.horizontal, 40)
         .padding(.vertical, 50)

@@ -49,6 +49,7 @@ model User {
   email     String   @unique
   name      String   @default("")
   role      String   @default("member") // "admin" | "member"
+  avatarUrl String?                     // path under /uploads/avatars/
   createdAt DateTime @default(now())
 
   createdTasks   Task[]         @relation("CreatedTasks")

@@ -61,7 +61,7 @@ export async function adminRoutes(app: FastifyInstance) {
     { onRequest: [app.requireAdmin] },
     async () => {
       return db.user.findMany({
-        select: { id: true, email: true, name: true, role: true, createdAt: true },
+        select: { id: true, email: true, name: true, role: true, avatarUrl: true, createdAt: true },
         orderBy: { createdAt: "desc" }
       });
     }

@@ -56,6 +56,7 @@ struct VibePlanApp: App {
                 .tint(VibePlanTheme.ink900)
                 .task { @MainActor in
                     realtime.spacesRoster = spacesRoster
+                    await Notifier.requestAuthorizationIfNeeded()
                     if auth.isAuthenticated {
                         spacesRoster.restoreScope()
                         await sync.fullSync()

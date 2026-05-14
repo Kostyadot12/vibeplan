@@ -6,6 +6,7 @@ struct DayPanelView: View {
     let searchQuery: String
     let onEdit: (PlanTask) -> Void
     let onAddTap: () -> Void
+    var onOpenProfile: (String) -> Void = { _ in }
 
     @Environment(\.modelContext)    private var ctx
     @Environment(DragState.self)    private var dragState
@@ -126,7 +127,8 @@ struct DayPanelView: View {
                     tasks: dayTasks.filter { CalendarUtil.ru.component(.hour, from: $0.startDate) == hour },
                     onEdit: onEdit,
                     onToggleStatus: toggleStatus,
-                    onDelete: delete
+                    onDelete: delete,
+                    onOpenProfile: onOpenProfile
                 )
             }
         }
@@ -223,6 +225,7 @@ private struct HourRow: View {
     let onEdit: (PlanTask) -> Void
     let onToggleStatus: (PlanTask) -> Void
     let onDelete: (PlanTask) -> Void
+    let onOpenProfile: (String) -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -240,7 +243,8 @@ private struct HourRow: View {
                             task: task,
                             onEdit: { onEdit(task) },
                             onToggleStatus: { onToggleStatus(task) },
-                            onDelete: { onDelete(task) }
+                            onDelete: { onDelete(task) },
+                            onOpenProfile: onOpenProfile
                         )
                     }
                 }
@@ -268,8 +272,30 @@ struct TaskCardView: View {
     let onEdit: () -> Void
     let onToggleStatus: () -> Void
     let onDelete: () -> Void
+    var onOpenProfile: (String) -> Void = { _ in }
 
-    @Environment(DragState.self) private var dragState
+    @Environment(DragState.self)    private var dragState
+    @Environment(SyncEngine.self)   private var sync
+    @Environment(\.modelContext)    private var ctx
+    @Environment(TeamRoster.self)   private var roster
+    @Environment(SpacesRoster.self) private var spacesRoster
+
+    @State private var editingTitle: Bool = false
+    @State private var titleDraft: String = ""
+    @FocusState private var titleFocused: Bool
+
+    private var creator: (name: String, email: String, avatarPath: String?)? {
+        guard let id = task.creatorServerId else { return nil }
+        if let m = roster.member(byId: id) {
+            return (m.name, m.email, m.avatarUrl)
+        }
+        for s in spacesRoster.spaces {
+            if let m = s.members.first(where: { $0.userId == id }) {
+                return (m.name, m.email, m.avatarUrl)
+            }
+        }
+        return nil
+    }
 
     var body: some View {
         Button(action: onEdit) {
@@ -278,11 +304,32 @@ struct TaskCardView: View {
                     .onTapGesture { onToggleStatus() }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(task.title)
-                        .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundStyle(task.status == .done ? VibePlanTheme.ink500 : VibePlanTheme.ink900)
-                        .strikethrough(task.status == .done, color: VibePlanTheme.ink400)
-                        .multilineTextAlignment(.leading)
+                    HStack(alignment: .top, spacing: 8) {
+                        if editingTitle {
+                            TextField("", text: $titleDraft)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 13.5, weight: .semibold))
+                                .foregroundStyle(VibePlanTheme.ink900)
+                                .focused($titleFocused)
+                                .onSubmit { commitInlineEdit() }
+                                .onExitCommand { editingTitle = false }
+                        } else {
+                            Text(task.title)
+                                .font(.system(size: 13.5, weight: .semibold))
+                                .foregroundStyle(task.status == .done ? VibePlanTheme.ink500 : VibePlanTheme.ink900)
+                                .strikethrough(task.status == .done, color: VibePlanTheme.ink400)
+                                .multilineTextAlignment(.leading)
+                                .onTapGesture(count: 2) { startInlineEdit() }
+                        }
+                        Spacer(minLength: 0)
+                        if let c = creator {
+                            Button(action: { onOpenProfile(task.creatorServerId ?? "") }) {
+                                AvatarBadge(name: c.name, email: c.email, size: 18, avatarPath: c.avatarPath)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Создал: \(c.name.isEmpty ? c.email : c.name)")
+                        }
+                    }
 
                     Text(timeMeta)
                         .font(.system(size: 11.5).monospacedDigit())
@@ -306,7 +353,7 @@ struct TaskCardView: View {
                         Spacer()
                         if !task.assignees.isEmpty {
                             AvatarStack(
-                                people: task.assignees.map { ($0.name, $0.email) },
+                                people: task.assignees.map { ($0.name, $0.email, $0.avatarUrl) },
                                 maxVisible: 3,
                                 size: 20
                             )
@@ -335,6 +382,7 @@ struct TaskCardView: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button("Редактировать", action: onEdit)
+            Button("Переименовать", action: startInlineEdit)
             Button("Следующий статус", action: onToggleStatus)
             Divider()
             Button("Удалить", role: .destructive, action: onDelete)
@@ -368,6 +416,21 @@ struct TaskCardView: View {
         case .open:
             Color.white
         }
+    }
+
+    private func startInlineEdit() {
+        titleDraft = task.title
+        editingTitle = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { titleFocused = true }
+    }
+
+    private func commitInlineEdit() {
+        let trimmed = titleDraft.trimmingCharacters(in: .whitespaces)
+        editingTitle = false
+        guard !trimmed.isEmpty, trimmed != task.title else { return }
+        task.title = trimmed
+        try? ctx.save()
+        sync.pushUpdate(task)
     }
 
     private var timeMeta: String {

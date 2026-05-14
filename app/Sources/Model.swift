@@ -93,11 +93,13 @@ final class TaskAssignee {
     var userId: String     // matches User.id on the backend
     var email: String
     var name: String
+    var avatarUrl: String? = nil
 
-    init(userId: String, email: String, name: String) {
+    init(userId: String, email: String, name: String, avatarUrl: String? = nil) {
         self.userId = userId
         self.email = email
         self.name = name
+        self.avatarUrl = avatarUrl
     }
 }
 
@@ -130,12 +132,14 @@ final class SpaceMember {
     var email: String
     var name: String
     var role: String       // "owner" | "member"
+    var avatarUrl: String? = nil
 
-    init(userId: String, email: String, name: String, role: String) {
+    init(userId: String, email: String, name: String, role: String, avatarUrl: String? = nil) {
         self.userId = userId
         self.email = email
         self.name = name
         self.role = role
+        self.avatarUrl = avatarUrl
     }
 }
 

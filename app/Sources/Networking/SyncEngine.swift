@@ -195,7 +195,7 @@ extension PlanTask {
             Subtask(title: $0.title, done: $0.done, order: $0.order, serverId: $0.id)
         }
         task.assignees = r.assignees.map {
-            TaskAssignee(userId: $0.id, email: $0.email, name: $0.name)
+            TaskAssignee(userId: $0.id, email: $0.email, name: $0.name, avatarUrl: $0.avatarUrl)
         }
         return task
     }
@@ -216,7 +216,7 @@ extension PlanTask {
             Subtask(title: $0.title, done: $0.done, order: $0.order, serverId: $0.id)
         }
         self.assignees = r.assignees.map {
-            TaskAssignee(userId: $0.id, email: $0.email, name: $0.name)
+            TaskAssignee(userId: $0.id, email: $0.email, name: $0.name, avatarUrl: $0.avatarUrl)
         }
     }
 }

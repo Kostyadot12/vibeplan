@@ -72,6 +72,54 @@ struct APIClient {
         try await get("me")
     }
 
+    func updateMe(name: String?, avatarUrl: String??) async throws -> UserDTO {
+        struct Body: Encodable {
+            var name: String?
+            var avatarUrl: String??
+            enum CodingKeys: String, CodingKey { case name, avatarUrl }
+            func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encodeIfPresent(name, forKey: .name)
+                if let inner = avatarUrl {
+                    if let v = inner { try c.encode(v, forKey: .avatarUrl) }
+                    else { try c.encodeNil(forKey: .avatarUrl) }
+                }
+            }
+        }
+        return try await patchJSON("me", Body(name: name, avatarUrl: avatarUrl))
+    }
+
+    /// Multipart upload of a new avatar image. Returns the updated UserDTO.
+    func uploadAvatar(imageData: Data, mimeType: String) async throws -> UserDTO {
+        guard let url = URL(string: "me/avatar", relativeTo: baseURL) else { throw APIError.invalidURL }
+        let boundary = "----vibeplan-\(UUID().uuidString)"
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue(RealtimeClient.clientId, forHTTPHeaderField: "X-Client-Id")
+        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+
+        var body = Data()
+        let ext = mimeType == "image/png" ? "png"
+                : mimeType == "image/jpeg" ? "jpg"
+                : mimeType == "image/gif" ? "gif" : "webp"
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"avatar.\(ext)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        req.httpBody = body
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw APIError.http(-1, "no http") }
+        if !(200..<300).contains(http.statusCode) {
+            throw APIError.http(http.statusCode, String(data: data, encoding: .utf8) ?? "")
+        }
+        return try Self.userDecoder.decode(UserDTO.self, from: data)
+    }
+
+    private static let userDecoder = JSONDecoder()
+
     // MARK: – Tasks
 
     func listTasks() async throws -> [TaskDTO] {

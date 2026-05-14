@@ -135,6 +135,11 @@ final class RealtimeClient {
             }
             if let taskJSON = envelope["task"], let raw = try? JSONSerialization.data(withJSONObject: taskJSON) {
                 applyUpsert(rawTask: raw)
+                if type == "task.created" {
+                    notifyAboutCreate(rawTask: raw)
+                } else {
+                    notifyAboutUpdate(rawTask: raw)
+                }
             }
         case "task.deleted":
             if let originId = envelope["originClientId"] as? String, originId == Self.clientId {
@@ -226,6 +231,57 @@ final class RealtimeClient {
             ctx.insert(newTask)
         }
         try? ctx.save()
+    }
+
+    @MainActor
+    private func notifyAboutCreate(rawTask data: Data) {
+        guard let dto = decodeTask(data), let me = auth.user?.id else { return }
+        let isAssigned = dto.assignees.contains(where: { $0.id == me })
+        guard isAssigned else { return }   // only ping if it concerns me
+        let creatorName = creatorDisplayName(dto.creatorId) ?? "Кто-то"
+        Notifier.post(
+            title: "Новая задача от \(creatorName)",
+            body:  dto.title
+        )
+    }
+
+    @MainActor
+    private func notifyAboutUpdate(rawTask data: Data) {
+        guard let dto = decodeTask(data), let me = auth.user?.id else { return }
+        guard dto.assignees.contains(where: { $0.id == me }) else { return }
+        // Throttle: only notify on status change to .done or in_progress.
+        if dto.status == "done" {
+            Notifier.post(title: "Задача выполнена", body: dto.title)
+        }
+    }
+
+    @MainActor
+    private func decodeTask(_ data: Data) -> TaskDTO? {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { d in
+            let c = try d.singleValueContainer()
+            let s = try c.decode(String.self)
+            let f1 = ISO8601DateFormatter(); f1.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let v = f1.date(from: s) { return v }
+            let f2 = ISO8601DateFormatter(); f2.formatOptions = [.withInternetDateTime]
+            if let v = f2.date(from: s) { return v }
+            throw DecodingError.dataCorruptedError(in: c, debugDescription: "bad iso8601: \(s)")
+        }
+        return try? decoder.decode(TaskDTO.self, from: data)
+    }
+
+    @MainActor
+    private func creatorDisplayName(_ creatorId: String?) -> String? {
+        guard let id = creatorId else { return nil }
+        // Try TeamRoster (held by App) — for now we do a lightweight lookup via SpacesRoster.
+        if let roster = spacesRoster {
+            for s in roster.spaces {
+                if let m = s.members.first(where: { $0.userId == id }) {
+                    return m.name.isEmpty ? m.email : m.name
+                }
+            }
+        }
+        return nil
     }
 
     @MainActor

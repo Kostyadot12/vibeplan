@@ -1,13 +1,42 @@
 import SwiftUI
 
-/// Small generic avatar — initials on a stable gradient computed from the name.
-/// Reuse from anywhere we need to show a person.
+/// Small generic avatar — initials on a stable gradient computed from the name,
+/// OR a remote image if `avatarPath` resolves under the configured backend URL.
 struct AvatarBadge: View {
     let name: String
     let email: String
     let size: CGFloat
+    var avatarPath: String? = nil           // path like "/uploads/avatars/abc.png"
+
+    @Environment(AppSettings.self) private var settings
 
     var body: some View {
+        Group {
+            if let url = avatarURL {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    default:
+                        initialsFallback
+                    }
+                }
+            } else {
+                initialsFallback
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: max(1, size / 14)))
+    }
+
+    private var avatarURL: URL? {
+        guard let path = avatarPath, !path.isEmpty else { return nil }
+        if let abs = URL(string: path), abs.scheme != nil { return abs }
+        return URL(string: path, relativeTo: settings.backendURL)
+    }
+
+    private var initialsFallback: some View {
         ZStack {
             Circle().fill(LinearGradient(
                 colors: gradient(for: seed),
@@ -18,8 +47,6 @@ struct AvatarBadge: View {
                 .font(.system(size: size * 0.42, weight: .semibold))
                 .foregroundStyle(.white)
         }
-        .frame(width: size, height: size)
-        .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: max(1, size / 14)))
     }
 
     private var seed: String { email.isEmpty ? name : email }
@@ -31,14 +58,12 @@ struct AvatarBadge: View {
             return parts.prefix(2).compactMap(\.first).map(String.init).joined().uppercased()
         }
         if display.contains("@") {
-            // First two letters of local-part of email.
             let local = display.split(separator: "@").first.map(String.init) ?? display
             return String(local.prefix(2)).uppercased()
         }
         return String(display.prefix(2)).uppercased()
     }
 
-    /// Stable hash → palette index so the same email always gets the same colors.
     private func gradient(for s: String) -> [Color] {
         let palettes: [[Color]] = [
             [VibePlanTheme.catWork, VibePlanTheme.catPersonal],
@@ -100,14 +125,14 @@ struct FlowLayout: Layout {
 
 /// Stack of overlapping avatars (`+N` chip if more than `maxVisible`).
 struct AvatarStack: View {
-    let people: [(name: String, email: String)]
+    let people: [(name: String, email: String, avatarPath: String?)]
     var maxVisible: Int = 3
     var size: CGFloat = 22
 
     var body: some View {
         HStack(spacing: -size * 0.28) {
             ForEach(Array(people.prefix(maxVisible).enumerated()), id: \.offset) { _, p in
-                AvatarBadge(name: p.name, email: p.email, size: size)
+                AvatarBadge(name: p.name, email: p.email, size: size, avatarPath: p.avatarPath)
             }
             if people.count > maxVisible {
                 ZStack {

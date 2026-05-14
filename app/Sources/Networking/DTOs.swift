@@ -17,6 +17,7 @@ struct UserDTO: Codable {
     let email: String
     let name: String
     let role: String      // "admin" | "member"
+    let avatarUrl: String?
 }
 
 // MARK: – Tasks
@@ -50,6 +51,7 @@ struct AssigneeDTO: Codable, Hashable {
     let id: String
     let email: String
     let name: String
+    var avatarUrl: String? = nil
 }
 
 /// POST /tasks body. `id` is optional — if omitted, server generates.
@@ -118,6 +120,7 @@ struct TeamMemberDTO: Codable, Hashable, Identifiable {
     let email: String
     let name: String
     let role: String
+    var avatarUrl: String? = nil
 }
 
 // MARK: – Spaces
@@ -137,6 +140,7 @@ struct SpaceMemberDTO: Codable, Hashable, Identifiable {
     let name: String
     let role: String
     let joinedAt: Date
+    var avatarUrl: String? = nil
 
     var id: String { userId }
 }

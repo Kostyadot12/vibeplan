@@ -22,7 +22,6 @@ struct SettingsSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
                         accountSection
-                        serverSection
                         syncSection
                         Divider()
                         logoutSection
@@ -230,29 +229,17 @@ struct SettingsSheet: View {
     }
 }
 
+/// Convenience wrapper around `AvatarBadge` taking a `UserDTO?`.
 struct UserBadge: View {
     let user: UserDTO?
     let size: CGFloat
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(LinearGradient(
-                    colors: [VibePlanTheme.catWork, VibePlanTheme.catPersonal],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ))
-            Text(initials)
-                .font(.system(size: size * 0.42, weight: .semibold))
-                .foregroundStyle(.white)
-        }
-        .frame(width: size, height: size)
-        .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 2))
-    }
-
-    private var initials: String {
-        let name = (user?.name.isEmpty == false ? user!.name : user?.email) ?? "?"
-        let parts = name.split(separator: name.contains(" ") ? " " : "@")
-        let chars = parts.prefix(2).compactMap { $0.first }
-        return chars.map(String.init).joined().uppercased()
+        AvatarBadge(
+            name: user?.name ?? "",
+            email: user?.email ?? "",
+            size: size,
+            avatarPath: user?.avatarUrl
+        )
     }
 }

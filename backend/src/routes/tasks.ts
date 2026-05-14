@@ -236,7 +236,7 @@ export async function taskRoutes(app: FastifyInstance) {
   // but the client can decide).
   app.get("/team", async () => {
     return db.user.findMany({
-      select: { id: true, email: true, name: true, role: true },
+      select: { id: true, email: true, name: true, role: true, avatarUrl: true },
       orderBy: { createdAt: "asc" }
     });
   });

@@ -13,6 +13,7 @@ struct MainWindowView: View {
     @State private var settingsOpen: Bool = false
     @State private var searchQuery: String = ""
     @State private var spaceSheetMode: SpaceSheetMode?
+    @State private var profileUserId: String?
 
     var body: some View {
         ZStack {
@@ -53,7 +54,8 @@ struct MainWindowView: View {
                         date: selectedDate,
                         searchQuery: searchQuery,
                         onEdit:   { editingTask = $0 },
-                        onAddTap: { addingForDate = selectedDate }
+                        onAddTap: { addingForDate = selectedDate },
+                        onOpenProfile: { profileUserId = $0 }
                     )
                     .frame(width: 420)
                 }
@@ -77,6 +79,12 @@ struct MainWindowView: View {
         .sheet(item: $spaceSheetMode) { mode in
             SpaceSheet(mode: mode).frame(minWidth: 520, minHeight: 560)
         }
+        .sheet(item: Binding(
+            get: { profileUserId.map { ProfileBox(id: $0) } },
+            set: { profileUserId = $0?.id }
+        )) { box in
+            ProfileSheet(userId: box.id).frame(minWidth: 460, minHeight: 540)
+        }
     }
 
     private func goToToday() {
@@ -90,6 +98,10 @@ struct MainWindowView: View {
 private struct DateBox: Identifiable {
     let date: Date
     var id: TimeInterval { date.timeIntervalSinceReferenceDate }
+}
+
+private struct ProfileBox: Identifiable {
+    let id: String
 }
 
 // MARK: – Toolbar
@@ -163,6 +175,9 @@ private struct ToolbarBar: View {
 
             Button(action: onSettings) {
                 UserBadge(user: auth.user, size: 30)
+                    .overlay(
+                        Circle().stroke(Color.black.opacity(0.06), lineWidth: 1)
+                    )
             }
             .buttonStyle(.plain)
             .help("Настройки")

@@ -115,18 +115,48 @@ export async function authRoutes(app: FastifyInstance) {
   // GET /me
   app.get("/me", { onRequest: [app.authenticate] }, async (req) => {
     const u = await db.user.findUnique({ where: { id: req.user.sub } });
-    if (!u) return { id: req.user.sub, email: req.user.email, name: "", role: req.user.role };
-    return { id: u.id, email: u.email, name: u.name, role: u.role };
+    if (!u) return { id: req.user.sub, email: req.user.email, name: "", role: req.user.role, avatarUrl: null };
+    return { id: u.id, email: u.email, name: u.name, role: u.role, avatarUrl: u.avatarUrl };
   });
 
-  // PATCH /me — let users set their display name
+  // PATCH /me — let users set their display name (and clear avatar via null)
   app.patch("/me", { onRequest: [app.authenticate] }, async (req, reply) => {
-    const body = z.object({ name: z.string().max(80) }).safeParse(req.body);
-    if (!body.success) return reply.badRequest("name обязателен");
+    const body = z.object({
+      name:      z.string().max(80).optional(),
+      avatarUrl: z.string().nullable().optional()
+    }).safeParse(req.body);
+    if (!body.success) return reply.badRequest(body.error.issues.map(i => i.message).join("; "));
     const u = await db.user.update({
       where: { id: req.user.sub },
-      data:  { name: body.data.name }
+      data:  body.data
     });
-    return { id: u.id, email: u.email, name: u.name, role: u.role };
+    return { id: u.id, email: u.email, name: u.name, role: u.role, avatarUrl: u.avatarUrl };
+  });
+
+  // POST /me/avatar — multipart image upload
+  app.post("/me/avatar", { onRequest: [app.authenticate] }, async (req, reply) => {
+    const file = await req.file();
+    if (!file) return reply.badRequest("Нет файла");
+    const allowed = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+    if (!allowed.has(file.mimetype)) {
+      return reply.badRequest(`Поддерживаются только PNG/JPG/GIF/WEBP — получили ${file.mimetype}`);
+    }
+
+    const ext = file.mimetype === "image/png"  ? ".png"
+              : file.mimetype === "image/jpeg" ? ".jpg"
+              : file.mimetype === "image/gif"  ? ".gif"
+              : ".webp";
+    const fname = `${req.user.sub}-${Date.now()}${ext}`;
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const dest = path.resolve(process.cwd(), "uploads", "avatars", fname);
+    await fs.writeFile(dest, await file.toBuffer());
+
+    const url = `/uploads/avatars/${fname}`;
+    const u = await db.user.update({
+      where: { id: req.user.sub },
+      data:  { avatarUrl: url }
+    });
+    return { id: u.id, email: u.email, name: u.name, role: u.role, avatarUrl: u.avatarUrl };
   });
 }

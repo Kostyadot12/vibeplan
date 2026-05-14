@@ -336,7 +336,7 @@ struct TaskEditorSheet: View {
                         ForEach(availableAssignees) { m in
                             Button(action: { toggleAssignee(m.id) }) {
                                 HStack(spacing: 7) {
-                                    AvatarBadge(name: m.name, email: m.email, size: 18)
+                                    AvatarBadge(name: m.name, email: m.email, size: 18, avatarPath: m.avatarUrl)
                                     Text(memberLabel(m))
                                         .font(.system(size: 12.5, weight: .medium))
                                     if assigneeIds.contains(m.id) {

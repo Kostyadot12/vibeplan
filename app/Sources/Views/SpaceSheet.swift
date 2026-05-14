@@ -150,7 +150,7 @@ struct SpaceSheet: View {
             VStack(spacing: 6) {
                 ForEach(current?.members ?? []) { m in
                     HStack(spacing: 10) {
-                        AvatarBadge(name: m.name, email: m.email, size: 28)
+                        AvatarBadge(name: m.name, email: m.email, size: 28, avatarPath: m.avatarUrl)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(m.name.isEmpty ? m.email : m.name)
                                 .font(.system(size: 13, weight: .medium))

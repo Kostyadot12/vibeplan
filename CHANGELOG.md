@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.6.0 — Профили + видимый автор + inline-edit + системные уведомления
+
+### Backend
+- `User.avatarUrl: String?` + multipart-загрузка через `@fastify/multipart`
+- Статика `/uploads/*` через `@fastify/static`
+- `POST /me/avatar` принимает PNG/JPG/GIF/WEBP до 10 МБ
+- `PATCH /me` теперь принимает `name` и `avatarUrl` (можно очистить null'ом)
+- `GET /team`, `GET /admin/users`, ассайны и spaceMember'ы возвращают `avatarUrl`
+
+### App — социальные фичи
+- **Автор задачи виден** на карточке: маленький аватар в правом-верхнем углу.
+  Клик → ProfileSheet с инфой об авторе, hover → tooltip «Создал: …»
+- **Профиль (ProfileSheet)**: имя редактируется, аватар загружается через
+  NSOpenPanel (PNG/JPG/GIF/WEBP). «Убрать фото» одной кнопкой
+- **Аватары везде** реальные если загружены (AsyncImage), fallback —
+  инициалы на стабильном градиенте по email
+- **Inline-редактирование заголовка**: двойной клик по title в карточке →
+  TextField; ⏎ сохраняет, Esc отменяет. Контекст-меню → «Переименовать»
+- **macOS-уведомления (UserNotifications)**:
+  - Запрос permission при первом запуске
+  - При WS-событии `task.created` где ты в assignees → системное уведомление
+  - При `task.updated` со статусом done и ты ассайн → уведомление о завершении
+
+### UX полировка
+- **Убрали показ адреса сервера** из UI:
+  - С экрана логина — server-чип удалён
+  - Из настроек — раздел «Сервер» убран
+  - Дефолтный URL хардкоднут, остаётся в `AppSettings` для тех. правок
+
 ## 0.5.5 — fix v0.5.4 build (MainActor isolation)
 
 - `SpacesRoster.persistScope()` теперь явно `@MainActor` — раньше функция

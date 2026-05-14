@@ -3,6 +3,10 @@ import cors from "@fastify/cors";
 import sensible from "@fastify/sensible";
 import jwt from "@fastify/jwt";
 import websocket from "@fastify/websocket";
+import multipart from "@fastify/multipart";
+import staticServe from "@fastify/static";
+import path from "node:path";
+import { mkdirSync } from "node:fs";
 import { healthRoutes } from "./routes/health.js";
 import { taskRoutes } from "./routes/tasks.js";
 import { authRoutes } from "./routes/auth.js";
@@ -35,6 +39,19 @@ export async function buildServer(): Promise<FastifyInstance> {
     sign:   { expiresIn: process.env.JWT_TTL ?? "30d" }
   });
   await app.register(websocket);
+  await app.register(multipart, {
+    limits: { fileSize: 10 * 1024 * 1024 }   // 10 MB per file
+  });
+
+  // Static serving for uploads (avatars, attachments, etc.)
+  const uploadsDir = path.resolve(process.cwd(), "uploads");
+  mkdirSync(path.join(uploadsDir, "avatars"),  { recursive: true });
+  mkdirSync(path.join(uploadsDir, "attachments"), { recursive: true });
+  await app.register(staticServe, {
+    root: uploadsDir,
+    prefix: "/uploads/",
+    decorateReply: false
+  });
   registerAuthDecorators(app);
 
   await app.register(healthRoutes);
