@@ -36,8 +36,10 @@ final class RealtimeClient {
     private var stopped: Bool = false
 
     /// Optional pointer to the SpacesRoster — set by App.swift so we can apply
-    /// space.* events. Keeping it weak avoids retain cycles.
-    weak var spacesRoster: SpacesRoster?
+    /// space.* events. Note: not `weak` because @Observable macros don't
+    /// always play well with weak storage; the roster outlives the realtime
+    /// client (both are held by App for the app's lifetime).
+    var spacesRoster: SpacesRoster?
 
     init(auth: AuthState, settings: AppSettings, container: ModelContainer) {
         self.auth = auth

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.5 — fix v0.5.4 build (MainActor isolation)
+
+- `SpacesRoster.persistScope()` теперь явно `@MainActor` — раньше функция
+  была nonisolated и читала `@MainActor var scope`, что в Swift 5.10+
+  ломает компиляцию: «main actor-isolated property 'scope' can not be
+  referenced from a nonisolated context».
+- `RealtimeClient.spacesRoster` больше не `weak` — `@Observable` macros не
+  всегда корректно работают со weak storage. Жизненный цикл объектов
+  совпадает (оба живут пока работает app), retain cycle невозможен.
+
 ## 0.5.4 — Spaces (папки/команды) + реальная приватность
 
 Заменили статичный «командный» режим на полноценные **пространства**

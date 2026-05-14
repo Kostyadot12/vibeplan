@@ -86,6 +86,7 @@ final class SpacesRoster {
         return s.members
     }
 
+    @MainActor
     private func persistScope() {
         let raw: String
         switch scope {
