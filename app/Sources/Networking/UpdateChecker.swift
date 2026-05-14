@@ -45,7 +45,10 @@ struct ReleaseInfo: Hashable, Identifiable {
 /// Polls the GitHub Releases API and exposes any available update.
 @Observable
 final class UpdateChecker {
-    @MainActor private(set) var current: SemVer
+    /// Immutable — set once at init from the bundle. Not @MainActor so the
+    /// non-isolated init can assign it.
+    let current: SemVer
+
     @MainActor private(set) var available: ReleaseInfo?
     @MainActor private(set) var checking: Bool = false
     @MainActor private(set) var lastCheckedAt: Date?
