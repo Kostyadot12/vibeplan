@@ -12,6 +12,7 @@ final class PlanTask {
     var statusRaw: String
     var sortOrder: Int
     var createdAt: Date
+    var inInbox: Bool = false
 
     @Relationship(deleteRule: .cascade)
     var subtasks: [Subtask] = []
@@ -23,7 +24,8 @@ final class PlanTask {
         durationMinutes: Int = 30,
         category: PlanCategory = .work,
         status: PlanStatus = .open,
-        sortOrder: Int = 0
+        sortOrder: Int = 0,
+        inInbox: Bool = false
     ) {
         self.title = title
         self.note = note
@@ -33,6 +35,7 @@ final class PlanTask {
         self.statusRaw = status.rawValue
         self.sortOrder = sortOrder
         self.createdAt = .now
+        self.inInbox = inInbox
     }
 
     var category: PlanCategory {

@@ -3,9 +3,10 @@
 Нативный macOS-таскбоард с минималистичным календарём для небольшой команды.
 Несколько человек создают, перетаскивают, выстраивают задачи в общем графике.
 
-> **Статус: Phase 1 — рабочий локальный календарь.** Месяц-сетка, таймлайн
-> дня, создание/редактирование/удаление задач, чеклисты, категории, статусы.
-> Данные — локально в SwiftData. Бэк, синк и команда — следующие фазы.
+> **Статус: Phase 1.x — локальный календарь с drag-and-drop.** Месяц-сетка,
+> таймлайн дня, CRUD, чеклисты, категории, статусы, перетаскивание задач
+> между днями и в «Неразобранное». Данные — локально в SwiftData.
+> Бэк, синк и команда — следующие фазы.
 
 ---
 
@@ -28,9 +29,11 @@ vibeplan/
 │   │   ├── App.swift             ← @main + ModelContainer + одноразовый seed
 │   │   ├── Model.swift           ← SwiftData @Model: PlanTask, Subtask, Category, Status
 │   │   ├── Seed.swift            ← начальные данные на первый запуск
-│   │   ├── MainWindowView.swift  ← layout: тулбар + грид + side panel
-│   │   ├── MonthGridView.swift   ← месяц-сетка 7×6 с пилюлями
-│   │   ├── DayPanelView.swift    ← таймлайн дня + карточки задач
+│   │   ├── DragState.swift       ← shared Observable для drag-сессии
+│   │   ├── MainWindowView.swift  ← layout: тулбар + грид + Inbox + side panel
+│   │   ├── MonthGridView.swift   ← месяц-сетка 7×6, drop-target по дню
+│   │   ├── DayPanelView.swift    ← таймлайн дня + draggable карточки
+│   │   ├── InboxBar.swift        ← «Неразобранное» (раскрывается, drop-target)
 │   │   ├── TaskEditorSheet.swift ← модалка «Новая / Редактировать»
 │   │   └── Theme.swift           ← дизайн-токены
 │   ├── Resources/
@@ -109,7 +112,7 @@ python3 process_icon.py   # требуется pillow: pip install pillow
 
 - [x] **Phase 0** — Скелет + GitHub Actions (v0.1.0)
 - [x] **Phase 1** — Месяц-сетка + таймлайн + редактор + SwiftData (v0.2.0)
-- [ ] **Phase 1.x** — Drag&drop между днями, Inbox/«Неразобранное», поиск
+- [x] **Phase 1.x** — Drag&drop между днями + «Неразобранное» (v0.3.0)
 - [ ] **Phase 2** — Backend: Fastify + Prisma + Postgres + WebSocket
 - [ ] **Phase 3** — Auth (email + 6-значный код, Keychain для JWT)
 - [ ] **Phase 4** — Sync: REST + last-write-wins

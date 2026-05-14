@@ -1,10 +1,13 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct MonthGridView: View {
     @Binding var monthAnchor: Date
     @Binding var selectedDate: Date
 
+    @Environment(\.modelContext) private var ctx
+    @Environment(DragState.self) private var dragState
     @Query private var allTasks: [PlanTask]
 
     private let weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
@@ -79,8 +82,35 @@ struct MonthGridView: View {
                     tasks: tasks(on: date)
                 )
                 .onTapGesture { selectedDate = CalendarUtil.startOfDay(date) }
+                .onDrop(of: [.text], isTargeted: nil) { _ in
+                    handleDrop(onto: date)
+                }
             }
         }
+    }
+
+    private func handleDrop(onto date: Date) -> Bool {
+        guard let task = dragState.dragged else { return false }
+        let cal = CalendarUtil.ru
+        // Preserve hour/minute from the task's existing startDate when re-dating.
+        // If task was in inbox, use 09:00 as the default landing time.
+        let timeComps: DateComponents
+        if task.inInbox {
+            timeComps = DateComponents(hour: 9, minute: 0)
+        } else {
+            timeComps = cal.dateComponents([.hour, .minute], from: task.startDate)
+        }
+        var dateComps = cal.dateComponents([.year, .month, .day], from: date)
+        dateComps.hour   = timeComps.hour
+        dateComps.minute = timeComps.minute
+        if let newDate = cal.date(from: dateComps) {
+            task.startDate = newDate
+            task.inInbox = false
+            try? ctx.save()
+            selectedDate = CalendarUtil.startOfDay(date)
+        }
+        dragState.dragged = nil
+        return true
     }
 
     private func isInDisplayedMonth(_ date: Date) -> Bool {
@@ -91,7 +121,7 @@ struct MonthGridView: View {
 
     private func tasks(on date: Date) -> [PlanTask] {
         allTasks
-            .filter { CalendarUtil.isSameDay($0.startDate, date) }
+            .filter { !$0.inInbox && CalendarUtil.isSameDay($0.startDate, date) }
             .sorted { $0.startDate < $1.startDate }
     }
 

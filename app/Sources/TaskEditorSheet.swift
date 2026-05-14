@@ -21,6 +21,12 @@ struct TaskEditorSheet: View {
     @State private var status: PlanStatus = .open
     @State private var subtaskDrafts: [SubtaskDraft] = []
     @State private var newSubtaskText: String = ""
+    @State private var whenPopoverOpen: Bool = false
+    @FocusState private var focus: Field?
+
+    fileprivate enum Field: Hashable { case title, note, newSubtask, subtask(UUID) }
+
+    private let durationPresets: [Int] = [15, 30, 45, 60, 90, 120, 180, 240]
 
     private var isEdit: Bool {
         if case .edit = mode { return true }
@@ -28,215 +34,425 @@ struct TaskEditorSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    titleField
-                    timeRow
-                    pickerRow
-                    noteField
-                    subtasksSection
+        ZStack {
+            VibePlanTheme.backgroundGradient.ignoresSafeArea()
+            Color.white.opacity(0.4).ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                header
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        titleSection
+                        whenSection
+                        durationSection
+                        categorySection
+                        statusSection
+                        noteSection
+                        subtasksSection
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 18)
                 }
-                .padding(20)
+                footer
             }
-            Divider()
-            footer
         }
-        .background(Color(white: 0.97))
         .onAppear(perform: load)
     }
 
-    // MARK: – Sections
+    // MARK: – Header
 
     private var header: some View {
-        HStack {
-            Text(isEdit ? "Редактировать задачу" : "Новая задача")
-                .font(.system(size: 16, weight: .semibold))
+        HStack(alignment: .center) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle().fill(category.color.opacity(0.15)).frame(width: 30, height: 30)
+                    Image(systemName: isEdit ? "square.and.pencil" : "plus")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(category.color)
+                }
+                Text(isEdit ? "Редактировать задачу" : "Новая задача")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(VibePlanTheme.ink900)
+            }
             Spacer()
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(VibePlanTheme.ink500)
-                    .frame(width: 26, height: 26)
+                    .frame(width: 28, height: 28)
+                    .background(.white.opacity(0.7), in: Circle())
+                    .overlay(Circle().stroke(Color.black.opacity(0.06)))
             }
             .buttonStyle(.plain)
-            .background(.white.opacity(0.0001))
         }
-        .padding(16)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 16)
     }
 
-    private var titleField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            label("Название")
-            TextField("Что нужно сделать?", text: $title)
+    // MARK: – Title
+
+    private var titleSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Название")
+            TextField("", text: $title, prompt: Text("Что нужно сделать?").foregroundStyle(VibePlanTheme.ink400))
                 .textFieldStyle(.plain)
-                .font(.system(size: 15, weight: .medium))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(.white, in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.08)))
+                .font(.system(size: 18, weight: .semibold))
+                .focused($focus, equals: .title)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(focus == .title ? VibePlanTheme.ink900.opacity(0.4) : Color.black.opacity(0.06))
+                )
         }
     }
 
-    private var timeRow: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                label("Дата")
-                DatePicker("", selection: $dateOnly, displayedComponents: .date)
-                    .labelsHidden()
-                    .datePickerStyle(.compact)
+    // MARK: – When (date + time chip → popover)
+
+    private var whenSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Когда")
+            Button(action: { whenPopoverOpen.toggle() }) {
+                HStack(spacing: 12) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(VibePlanTheme.ink700)
+                    Text(formattedDate)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(VibePlanTheme.ink900)
+                    Rectangle().fill(Color.black.opacity(0.08)).frame(width: 1, height: 14)
+                    Image(systemName: "clock")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(VibePlanTheme.ink700)
+                    Text(formattedTime)
+                        .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(VibePlanTheme.ink900)
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(VibePlanTheme.ink400)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.black.opacity(0.06))
+                )
             }
-            VStack(alignment: .leading, spacing: 6) {
-                label("Время")
+            .buttonStyle(.plain)
+            .popover(isPresented: $whenPopoverOpen, arrowEdge: .bottom) {
+                whenPopoverContent
+                    .padding(16)
+                    .frame(width: 320)
+            }
+        }
+    }
+
+    private var whenPopoverContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            DatePicker("", selection: $dateOnly, displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .labelsHidden()
+                .environment(\.locale, Locale(identifier: "ru_RU"))
+
+            HStack {
+                Text("Время")
+                    .font(.system(size: 12, weight: .semibold))
+                    .tracking(0.5)
+                    .textCase(.uppercase)
+                    .foregroundStyle(VibePlanTheme.ink500)
+                Spacer()
                 DatePicker("", selection: $time, displayedComponents: .hourAndMinute)
-                    .labelsHidden()
                     .datePickerStyle(.compact)
+                    .labelsHidden()
             }
-            VStack(alignment: .leading, spacing: 6) {
-                label("Длительность")
-                Stepper(value: $durationMinutes, in: 15...480, step: 15) {
-                    Text("\(durationMinutes) мин")
-                        .font(.system(size: 13).monospacedDigit())
-                        .frame(width: 70, alignment: .leading)
-                }
-            }
-            Spacer()
         }
     }
 
-    private var pickerRow: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                label("Категория")
-                Picker("", selection: $category) {
-                    ForEach(PlanCategory.allCases) { c in
-                        HStack {
-                            Circle().fill(c.color).frame(width: 8, height: 8)
-                            Text(c.label)
+    // MARK: – Duration
+
+    private var durationSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Длительность")
+            HStack(spacing: 6) {
+                ForEach(durationPresets, id: \.self) { mins in
+                    Button(action: { durationMinutes = mins }) {
+                        Text(durationLabel(mins))
+                            .font(.system(size: 13, weight: .medium).monospacedDigit())
+                            .foregroundStyle(durationMinutes == mins ? .white : VibePlanTheme.ink700)
+                            .padding(.horizontal, 11)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(durationMinutes == mins ? VibePlanTheme.ink900 : Color.white.opacity(0.7))
+                            )
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .stroke(durationMinutes == mins ? Color.clear : Color.black.opacity(0.06))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func durationLabel(_ mins: Int) -> String {
+        if mins < 60 { return "\(mins) мин" }
+        let h = Double(mins) / 60.0
+        if h.truncatingRemainder(dividingBy: 1) == 0 { return "\(Int(h)) ч" }
+        return String(format: "%.1f ч", h).replacingOccurrences(of: ".", with: ",")
+    }
+
+    // MARK: – Category
+
+    private var categorySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Категория")
+            HStack(spacing: 6) {
+                ForEach(PlanCategory.allCases) { cat in
+                    Button(action: { category = cat }) {
+                        HStack(spacing: 6) {
+                            Circle().fill(cat.color).frame(width: 8, height: 8)
+                            Text(cat.label)
+                                .font(.system(size: 13, weight: .medium))
                         }
-                        .tag(c)
+                        .foregroundStyle(category == cat ? .white : VibePlanTheme.ink700)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 7)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(category == cat ? cat.color : cat.tintBackground)
+                        )
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(category == cat ? Color.clear : Color.black.opacity(0.04))
+                        )
                     }
+                    .buttonStyle(.plain)
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(width: 180)
             }
-
-            VStack(alignment: .leading, spacing: 6) {
-                label("Статус")
-                Picker("", selection: $status) {
-                    ForEach(PlanStatus.allCases) { s in
-                        Text(s.label).tag(s)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(width: 160)
-            }
-            Spacer()
         }
     }
 
-    private var noteField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            label("Заметка")
-            TextEditor(text: $note)
-                .font(.system(size: 13))
-                .frame(minHeight: 70, maxHeight: 120)
-                .padding(8)
-                .background(.white, in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.08)))
+    // MARK: – Status
+
+    private var statusSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Статус")
+            HStack(spacing: 6) {
+                ForEach(PlanStatus.allCases) { st in
+                    Button(action: { status = st }) {
+                        HStack(spacing: 7) {
+                            statusGlyph(for: st, selected: status == st)
+                            Text(st.label)
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundStyle(status == st ? .white : VibePlanTheme.ink700)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(status == st ? VibePlanTheme.ink900 : Color.white.opacity(0.7))
+                        )
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(status == st ? Color.clear : Color.black.opacity(0.06))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
+
+    @ViewBuilder
+    private func statusGlyph(for st: PlanStatus, selected: Bool) -> some View {
+        let strokeColor: Color = selected ? .white : VibePlanTheme.ink400
+        switch st {
+        case .open:
+            Circle().strokeBorder(strokeColor, lineWidth: 1.5).frame(width: 12, height: 12)
+        case .inProgress:
+            ZStack {
+                Circle().strokeBorder(strokeColor, lineWidth: 1.5).frame(width: 12, height: 12)
+                Circle().trim(from: 0, to: 0.6).rotation(.degrees(-90))
+                    .fill(selected ? .white : VibePlanTheme.catWork)
+                    .frame(width: 8, height: 8)
+            }
+        case .done:
+            ZStack {
+                Circle().fill(selected ? .white : VibePlanTheme.ink900).frame(width: 12, height: 12)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 7, weight: .bold))
+                    .foregroundStyle(selected ? VibePlanTheme.ink900 : .white)
+            }
+        }
+    }
+
+    // MARK: – Note
+
+    private var noteSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Заметка")
+            ZStack(alignment: .topLeading) {
+                if note.isEmpty {
+                    Text("Контекст, ссылки, мысли…")
+                        .font(.system(size: 13))
+                        .foregroundStyle(VibePlanTheme.ink400)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .allowsHitTesting(false)
+                }
+                TextEditor(text: $note)
+                    .font(.system(size: 13))
+                    .focused($focus, equals: .note)
+                    .scrollContentBackground(.hidden)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .frame(minHeight: 86)
+            }
+            .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(focus == .note ? VibePlanTheme.ink900.opacity(0.4) : Color.black.opacity(0.06))
+            )
+        }
+    }
+
+    // MARK: – Subtasks
 
     private var subtasksSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            label("Подзадачи")
-            VStack(spacing: 6) {
-                ForEach($subtaskDrafts) { $draft in
-                    HStack(spacing: 8) {
-                        Button {
-                            draft.done.toggle()
-                        } label: {
-                            Image(systemName: draft.done ? "checkmark.square.fill" : "square")
-                                .foregroundStyle(draft.done ? VibePlanTheme.ink900 : VibePlanTheme.ink400)
-                        }
-                        .buttonStyle(.plain)
-
-                        TextField("Подзадача", text: $draft.title)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 13))
-
-                        Button {
-                            subtaskDrafts.removeAll { $0.id == draft.id }
-                        } label: {
-                            Image(systemName: "minus.circle")
-                                .foregroundStyle(VibePlanTheme.ink400)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(.white, in: RoundedRectangle(cornerRadius: 6))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.black.opacity(0.06)))
-                }
-
-                HStack(spacing: 8) {
-                    Image(systemName: "plus")
+            HStack(alignment: .firstTextBaseline) {
+                sectionLabel("Подзадачи")
+                Spacer()
+                if !subtaskDrafts.isEmpty {
+                    Text("\(subtaskDrafts.filter(\.done).count) / \(subtaskDrafts.count)")
+                        .font(.system(size: 11, weight: .semibold).monospacedDigit())
                         .foregroundStyle(VibePlanTheme.ink400)
-                    TextField("Добавить подзадачу", text: $newSubtaskText, onCommit: addSubtask)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 13))
-                    Button("Добавить", action: addSubtask)
-                        .buttonStyle(.plain)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(newSubtaskText.isEmpty ? VibePlanTheme.ink400 : VibePlanTheme.ink900)
-                        .disabled(newSubtaskText.isEmpty)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color.black.opacity(0.03), in: RoundedRectangle(cornerRadius: 6))
+            }
+            VStack(spacing: 4) {
+                ForEach($subtaskDrafts) { $draft in
+                    SubtaskRow(
+                        draft: $draft,
+                        focus: $focus,
+                        onDelete: { subtaskDrafts.removeAll { $0.id == draft.id } }
+                    )
+                }
+                addSubtaskRow
             }
         }
     }
+
+    private var addSubtaskRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "plus")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(VibePlanTheme.ink400)
+                .frame(width: 18, height: 18)
+
+            TextField("", text: $newSubtaskText,
+                      prompt: Text("Добавить подзадачу").foregroundStyle(VibePlanTheme.ink400))
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused($focus, equals: .newSubtask)
+                .onSubmit(addSubtask)
+
+            if !newSubtaskText.isEmpty {
+                Button("Добавить", action: addSubtask)
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(VibePlanTheme.ink900, in: Capsule())
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.white.opacity(0.5), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                .foregroundStyle(Color.black.opacity(0.10))
+        )
+    }
+
+    // MARK: – Footer
 
     private var footer: some View {
         HStack {
             if isEdit {
-                Button("Удалить", role: .destructive, action: deleteAndClose)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.red)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                Button(action: deleteAndClose) {
+                    Label("Удалить", systemImage: "trash")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color(red: 0.78, green: 0.20, blue: 0.20))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.red.opacity(0.08), in: Capsule())
+                }
+                .buttonStyle(.plain)
             }
             Spacer()
             Button("Отмена", action: { dismiss() })
                 .buttonStyle(.plain)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(.white, in: Capsule())
-                .overlay(Capsule().stroke(Color.black.opacity(0.1)))
-
-            Button(isEdit ? "Сохранить" : "Создать", action: save)
-                .buttonStyle(.plain)
-                .foregroundStyle(.white)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(VibePlanTheme.ink900)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
+                .background(.white.opacity(0.7), in: Capsule())
+                .overlay(Capsule().stroke(Color.black.opacity(0.08)))
+
+            Button(action: save) {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                    Text(isEdit ? "Сохранить" : "Создать")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 8)
                 .background(VibePlanTheme.ink900, in: Capsule())
-                .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
-                .opacity(title.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
+                .shadow(color: .black.opacity(0.18), radius: 6, y: 3)
+            }
+            .buttonStyle(.plain)
+            .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+            .opacity(title.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
         }
-        .padding(14)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 14)
+        .background(.white.opacity(0.5))
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1)
+        }
     }
 
-    private func label(_ text: String) -> some View {
+    // MARK: – Helpers
+
+    private func sectionLabel(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 11, weight: .semibold))
             .tracking(0.6)
             .textCase(.uppercase)
             .foregroundStyle(VibePlanTheme.ink500)
+    }
+
+    private var formattedDate: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ru_RU")
+        f.dateFormat = "d MMMM yyyy"
+        return f.string(from: dateOnly)
+    }
+
+    private var formattedTime: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ru_RU")
+        f.dateFormat = "HH:mm"
+        return f.string(from: time)
     }
 
     // MARK: – Actions
@@ -246,6 +462,7 @@ struct TaskEditorSheet: View {
         guard !s.isEmpty else { return }
         subtaskDrafts.append(SubtaskDraft(title: s, done: false))
         newSubtaskText = ""
+        focus = .newSubtask
     }
 
     private func load() {
@@ -253,20 +470,19 @@ struct TaskEditorSheet: View {
         case .add(let defaultDate):
             let cal = CalendarUtil.ru
             dateOnly = defaultDate
-            // default time: next round half-hour
             let now = Date()
             var comps = cal.dateComponents([.year, .month, .day, .hour], from: now)
             comps.minute = (cal.component(.minute, from: now) < 30) ? 30 : 0
             if comps.minute == 0 { comps.hour = (comps.hour ?? 0) + 1 }
             time = cal.date(from: comps) ?? now
 
-            // if default day != today, pin time to 09:00
             if !CalendarUtil.isSameDay(defaultDate, .now) {
                 var pin = cal.dateComponents([.year, .month, .day], from: defaultDate)
                 pin.hour = 9
                 pin.minute = 0
                 time = cal.date(from: pin) ?? defaultDate
             }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { focus = .title }
 
         case .edit(let task):
             title = task.title
@@ -306,7 +522,6 @@ struct TaskEditorSheet: View {
             task.durationMinutes = durationMinutes
             task.category = category
             task.status = status
-            // replace subtasks in-place: simplest, no diff needed
             for s in task.subtasks { ctx.delete(s) }
             task.subtasks = subtaskDrafts.enumerated().map { idx, d in
                 Subtask(title: d.title, done: d.done, order: idx)
@@ -335,6 +550,63 @@ struct TaskEditorSheet: View {
         merged.hour   = t.hour
         merged.minute = t.minute
         return cal.date(from: merged) ?? Date()
+    }
+}
+
+private struct SubtaskRow: View {
+    @Binding var draft: SubtaskDraft
+    var focus: FocusState<TaskEditorSheet.Field?>.Binding
+    let onDelete: () -> Void
+
+    @State private var hovered: Bool = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button(action: { draft.done.toggle() }) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .strokeBorder(draft.done ? VibePlanTheme.ink900 : VibePlanTheme.ink300, lineWidth: 1.5)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(draft.done ? VibePlanTheme.ink900 : Color.clear)
+                        )
+                        .frame(width: 16, height: 16)
+                    if draft.done {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
+            TextField("", text: $draft.title)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .foregroundStyle(draft.done ? VibePlanTheme.ink400 : VibePlanTheme.ink900)
+                .strikethrough(draft.done, color: VibePlanTheme.ink400)
+                .focused(focus, equals: .subtask(draft.id))
+
+            if hovered {
+                Button(action: onDelete) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(VibePlanTheme.ink400)
+                        .frame(width: 18, height: 18)
+                        .background(.white.opacity(0.8), in: Circle())
+                        .overlay(Circle().stroke(Color.black.opacity(0.06)))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.white.opacity(hovered ? 0.85 : 0.55), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .stroke(Color.black.opacity(0.06))
+        )
+        .onHover { hovered = $0 }
     }
 }
 

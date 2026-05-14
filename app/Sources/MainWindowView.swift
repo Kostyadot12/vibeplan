@@ -8,6 +8,8 @@ struct MainWindowView: View {
     @State private var monthAnchor: Date  = CalendarUtil.startOfMonth(.now)
     @State private var editingTask: PlanTask?
     @State private var addingForDate: Date?
+    @State private var dragState = DragState()
+    @State private var inboxExpanded: Bool = false
 
     var body: some View {
         ZStack {
@@ -22,10 +24,17 @@ struct MainWindowView: View {
                 Divider().opacity(0.4)
 
                 HStack(spacing: 0) {
-                    MonthGridView(
-                        monthAnchor: $monthAnchor,
-                        selectedDate: $selectedDate
-                    )
+                    VStack(spacing: 0) {
+                        MonthGridView(
+                            monthAnchor: $monthAnchor,
+                            selectedDate: $selectedDate
+                        )
+                        .frame(maxHeight: .infinity)
+
+                        InboxBar(expanded: $inboxExpanded, onEdit: { editingTask = $0 })
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 16)
+                    }
                     .frame(minWidth: 700)
 
                     Divider().opacity(0.4)
@@ -39,16 +48,17 @@ struct MainWindowView: View {
                 }
             }
         }
+        .environment(dragState)
         .sheet(item: $editingTask) { task in
             TaskEditorSheet(mode: .edit(task))
-                .frame(minWidth: 460, minHeight: 560)
+                .frame(minWidth: 520, minHeight: 680)
         }
         .sheet(item: Binding(
             get: { addingForDate.map { DateBox(date: $0) } },
             set: { addingForDate = $0?.date }
         )) { box in
             TaskEditorSheet(mode: .add(defaultDate: box.date))
-                .frame(minWidth: 460, minHeight: 560)
+                .frame(minWidth: 520, minHeight: 680)
         }
     }
 

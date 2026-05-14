@@ -7,6 +7,7 @@ struct DayPanelView: View {
     let onAddTap: () -> Void
 
     @Environment(\.modelContext) private var ctx
+    @Environment(DragState.self) private var dragState
     @Query private var allTasks: [PlanTask]
 
     private let firstHour = 7
@@ -14,7 +15,7 @@ struct DayPanelView: View {
 
     private var dayTasks: [PlanTask] {
         allTasks
-            .filter { CalendarUtil.isSameDay($0.startDate, date) }
+            .filter { !$0.inInbox && CalendarUtil.isSameDay($0.startDate, date) }
             .sorted { $0.startDate < $1.startDate }
     }
 
@@ -207,6 +208,8 @@ struct TaskCardView: View {
     let onToggleStatus: () -> Void
     let onDelete: () -> Void
 
+    @Environment(DragState.self) private var dragState
+
     var body: some View {
         Button(action: onEdit) {
             HStack(alignment: .top, spacing: 10) {
@@ -267,6 +270,19 @@ struct TaskCardView: View {
             Button("Следующий статус", action: onToggleStatus)
             Divider()
             Button("Удалить", role: .destructive, action: onDelete)
+        }
+        .onDrag {
+            dragState.dragged = task
+            return NSItemProvider(object: NSString(string: "vibeplan.task"))
+        } preview: {
+            HStack(spacing: 8) {
+                Circle().fill(task.category.color).frame(width: 6, height: 6)
+                Text(task.title).font(.system(size: 13, weight: .medium))
+            }
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(.white, in: Capsule())
+            .overlay(Capsule().stroke(Color.black.opacity(0.1)))
+            .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
         }
     }
 

@@ -95,7 +95,35 @@ enum Seed {
             sortOrder: 0
         )
 
-        for t in [standup, demo, course, training, ideas, tomorrowCall, reading, release] {
+        // A few items in the inbox to demo "Неразобранное"
+        let inbox1 = PlanTask(
+            title: "Подумать про лендинг VibePlan",
+            note: "Хорошо бы стартовая страница с DMG-кнопкой.",
+            startDate: at(0, hour: 12),
+            durationMinutes: 30,
+            category: .ideas,
+            status: .open,
+            inInbox: true
+        )
+        let inbox2 = PlanTask(
+            title: "Заказать кофе на офис",
+            startDate: at(0, hour: 12),
+            durationMinutes: 15,
+            category: .personal,
+            status: .open,
+            inInbox: true
+        )
+        let inbox3 = PlanTask(
+            title: "Прочитать статью про SwiftData migrations",
+            startDate: at(0, hour: 12),
+            durationMinutes: 45,
+            category: .learning,
+            status: .open,
+            inInbox: true
+        )
+
+        for t in [standup, demo, course, training, ideas, tomorrowCall, reading, release,
+                  inbox1, inbox2, inbox3] {
             ctx.insert(t)
         }
         try? ctx.save()
