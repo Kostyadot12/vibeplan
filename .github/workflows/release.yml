@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version label for a manual build (e.g. 0.1.0-test)."
+        required: false
+        default: "0.0.0-dev"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        working-directory: ${{ github.workspace }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            TAG="manual-${{ github.run_number }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+            if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Release tags must use semantic versioning, e.g. v0.1.0." >&2
+              exit 1
+            fi
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp app version into Info.plist
+        run: |
+          plutil -replace CFBundleShortVersionString -string "${{ steps.version.outputs.version }}" Info.plist
+          plutil -replace CFBundleVersion -string "${{ github.run_number }}" Info.plist
+
+      - name: Install build tools
+        run: brew install create-dmg fileicon
+
+      - name: Force-rebuild icons from source PNG
+        run: rm -f Resources/*.icns
+
+      - name: Build universal app (ad-hoc signed)
+        run: make ARCH=universal APP_NAME=VibePlan BUNDLE_ID=app.vibeplan.macos CODESIGN_IDENTITY=-
+
+      - name: Create universal DMG
+        run: make dmg ARCH=universal APP_NAME=VibePlan BUNDLE_ID=app.vibeplan.macos CODESIGN_IDENTITY=-
+
+      - name: Stage DMG at workspace root
+        working-directory: ${{ github.workspace }}
+        run: mv app/build/VibePlan.dmg VibePlan.dmg
+
+      - name: Create GitHub Release (tag push)
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: VibePlan ${{ steps.version.outputs.version }}
+          body: |
+            ## Download
+
+            **[VibePlan.dmg](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/VibePlan.dmg)** — Universal build (Apple Silicon + Intel).
+
+            ### First launch
+            macOS will warn that the app is from an unidentified developer
+            (we don't pay for Apple Developer signing).
+            Right-click `VibePlan.app` → **Open** → confirm.
+            You only need to do this once.
+          generate_release_notes: false
+          make_latest: true
+          files: |
+            VibePlan.dmg
+
+      - name: Upload artifact (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: VibePlan-${{ steps.version.outputs.version }}-dmg
+          path: VibePlan.dmg
+          retention-days: 14

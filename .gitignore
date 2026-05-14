@@ -1,0 +1,29 @@
+.DS_Store
+*.swp
+.env
+.env.*
+!.env.example
+
+# Swift / Xcode
+.build/
+.swiftpm/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# App build output
+app/build/
+
+# Icons regenerated from PNG by Makefile — don't commit stale .icns
+app/Resources/*.icns
+
+# Backend (Node)
+backend/node_modules/
+backend/dist/
+backend/.next/
+backend/coverage/
+backend/dev.db
+backend/dev.db-journal
+
+# Editor / OS
+.idea/
+.vscode/
