@@ -14,6 +14,9 @@ final class PlanTask {
     var createdAt: Date
     var inInbox: Bool = false
 
+    /// Server-assigned id once this task has been synced. nil → never pushed.
+    var serverId: String? = nil
+
     @Relationship(deleteRule: .cascade)
     var subtasks: [Subtask] = []
 
@@ -25,7 +28,8 @@ final class PlanTask {
         category: PlanCategory = .work,
         status: PlanStatus = .open,
         sortOrder: Int = 0,
-        inInbox: Bool = false
+        inInbox: Bool = false,
+        serverId: String? = nil
     ) {
         self.title = title
         self.note = note
@@ -36,6 +40,7 @@ final class PlanTask {
         self.sortOrder = sortOrder
         self.createdAt = .now
         self.inInbox = inInbox
+        self.serverId = serverId
     }
 
     var category: PlanCategory {
@@ -58,11 +63,13 @@ final class Subtask {
     var title: String
     var done: Bool
     var order: Int
+    var serverId: String? = nil
 
-    init(title: String, done: Bool = false, order: Int = 0) {
+    init(title: String, done: Bool = false, order: Int = 0, serverId: String? = nil) {
         self.title = title
         self.done = done
         self.order = order
+        self.serverId = serverId
     }
 }
 

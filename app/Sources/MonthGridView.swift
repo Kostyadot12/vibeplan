@@ -8,6 +8,7 @@ struct MonthGridView: View {
 
     @Environment(\.modelContext) private var ctx
     @Environment(DragState.self) private var dragState
+    @Environment(SyncEngine.self) private var sync
     @Query private var allTasks: [PlanTask]
 
     private let weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
@@ -107,6 +108,7 @@ struct MonthGridView: View {
             task.startDate = newDate
             task.inInbox = false
             try? ctx.save()
+            sync.pushUpdate(task)
             selectedDate = CalendarUtil.startOfDay(date)
         }
         dragState.dragged = nil

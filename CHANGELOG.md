@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0 — Phase 4: Mac-приложение умеет логиниться и синкаться
+
+- LoginView: email → код из письма → JWT в Keychain
+- AppSettings (UserDefaults): backend URL по умолчанию `http://82.38.68.48:4400`
+- SettingsSheet: аккаунт, сервер с проверкой, статус синка, кнопка «Выйти»
+- APIClient на URLSession + ISO8601-даты + Bearer-токен
+- DTOs (Codable) под backend контракт `/auth/*`, `/me`, `/tasks`
+- SyncEngine (Observable):
+  - **На логин:** push локальных без `serverId` → pull всех → reconcile
+  - **На каждую мутацию:** best-effort push (не блокирует UI)
+  - **Удаление:** DELETE на бэке если есть `serverId`, иначе только локально
+- В тулбаре: User badge (инициалы), индикатор синка, settings cog
+- Schema: `PlanTask.serverId`, `Subtask.serverId` (lightweight migration)
+- Один сервис на инсталляцию, один аккаунт; разлогин не трогает локальные данные
+
 ## Phase 3 — Auth на бэкенде
 
 - Prisma модели: `User`, `AllowedEmail`, `VerificationCode`

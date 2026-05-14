@@ -8,6 +8,7 @@ struct InboxBar: View {
 
     @Environment(\.modelContext) private var ctx
     @Environment(DragState.self) private var dragState
+    @Environment(SyncEngine.self) private var sync
     @Query private var allTasks: [PlanTask]
 
     @State private var hoveringDrop: Bool = false
@@ -115,14 +116,17 @@ struct InboxBar: View {
         guard let task = dragState.dragged else { return false }
         task.inInbox = true
         try? ctx.save()
+        sync.pushUpdate(task)
         dragState.dragged = nil
         expanded = true
         return true
     }
 
     private func delete(_ task: PlanTask) {
+        let sid = task.serverId
         ctx.delete(task)
         try? ctx.save()
+        sync.pushDelete(serverId: sid)
     }
 }
 

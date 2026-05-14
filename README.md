@@ -119,8 +119,9 @@ python3 process_icon.py   # требуется pillow: pip install pillow
 - [x] **Phase 1.x** — Drag&drop между днями + «Неразобранное» (v0.3.0)
 - [x] **Phase 2** — Backend: Fastify + Prisma + SQLite/Postgres, REST CRUD
 - [x] **Phase 3** — Auth на бэке: email + 6-значный код, JWT, whitelist, admin-API
-- [ ] **Phase 3.x** — Many-to-many assignees, login UI в Mac-приложении
-- [ ] **Phase 4** — Sync клиент: URLSession + Keychain + last-write-wins
+- [x] **Phase 4** — Mac-клиент: login UI, Keychain, APIClient, SyncEngine (v0.4.0)
+- [ ] **Phase 5** — WebSocket realtime (вместо polling-style sync)
+- [ ] **Phase 6** — Many-to-many assignees, polish, dark mode
 - [ ] **Phase 3** — Auth (email + 6-значный код, Keychain для JWT)
 - [ ] **Phase 4** — Sync: REST + last-write-wins
 - [ ] **Phase 5** — Realtime через WebSocket

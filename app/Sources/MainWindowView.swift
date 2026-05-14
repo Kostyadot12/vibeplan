@@ -10,6 +10,7 @@ struct MainWindowView: View {
     @State private var addingForDate: Date?
     @State private var dragState = DragState()
     @State private var inboxExpanded: Bool = false
+    @State private var settingsOpen: Bool = false
 
     var body: some View {
         ZStack {
@@ -19,7 +20,8 @@ struct MainWindowView: View {
             VStack(spacing: 0) {
                 ToolbarBar(
                     onToday: goToToday,
-                    onAdd: { addingForDate = selectedDate }
+                    onAdd: { addingForDate = selectedDate },
+                    onSettings: { settingsOpen = true }
                 )
                 Divider().opacity(0.4)
 
@@ -60,6 +62,9 @@ struct MainWindowView: View {
             TaskEditorSheet(mode: .add(defaultDate: box.date))
                 .frame(minWidth: 520, minHeight: 680)
         }
+        .sheet(isPresented: $settingsOpen) {
+            SettingsSheet().frame(minWidth: 520, minHeight: 480)
+        }
     }
 
     private func goToToday() {
@@ -80,6 +85,10 @@ private struct DateBox: Identifiable {
 private struct ToolbarBar: View {
     let onToday: () -> Void
     let onAdd: () -> Void
+    let onSettings: () -> Void
+
+    @Environment(AuthState.self)  private var auth
+    @Environment(SyncEngine.self) private var sync
 
     @State private var scope: Int = 1 // 0 personal, 1 team — stub for Phase 1
 
@@ -109,6 +118,8 @@ private struct ToolbarBar: View {
 
             Spacer()
 
+            syncStatusChip
+
             Button(action: onToday) {
                 Label("Сегодня", systemImage: "arrow.counterclockwise")
                     .font(.system(size: 13, weight: .medium))
@@ -129,9 +140,34 @@ private struct ToolbarBar: View {
             .foregroundStyle(.white)
             .background(VibePlanTheme.ink900, in: Capsule())
             .shadow(color: .black.opacity(0.18), radius: 6, x: 0, y: 3)
+
+            Button(action: onSettings) {
+                UserBadge(user: auth.user, size: 30)
+            }
+            .buttonStyle(.plain)
+            .help("Настройки")
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
+    }
+
+    @ViewBuilder
+    private var syncStatusChip: some View {
+        if sync.isSyncing {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Синк…").font(.system(size: 11))
+            }
+            .foregroundStyle(VibePlanTheme.ink500)
+        } else if sync.lastError != nil {
+            HStack(spacing: 4) {
+                Image(systemName: "exclamationmark.circle.fill")
+                Text("Ошибка синка").font(.system(size: 11))
+            }
+            .foregroundStyle(.red)
+        } else {
+            EmptyView()
+        }
     }
 
     private func scopeButton(_ title: String, index: Int) -> some View {

@@ -8,6 +8,7 @@ struct DayPanelView: View {
 
     @Environment(\.modelContext) private var ctx
     @Environment(DragState.self) private var dragState
+    @Environment(SyncEngine.self) private var sync
     @Query private var allTasks: [PlanTask]
 
     private let firstHour = 7
@@ -96,11 +97,14 @@ struct DayPanelView: View {
     private func toggleStatus(_ task: PlanTask) {
         task.status = task.status.next()
         try? ctx.save()
+        sync.pushUpdate(task)
     }
 
     private func delete(_ task: PlanTask) {
+        let sid = task.serverId
         ctx.delete(task)
         try? ctx.save()
+        sync.pushDelete(serverId: sid)
     }
 
     private func isCurrentHour(_ hour: Int) -> Bool {
@@ -236,7 +240,7 @@ struct TaskCardView: View {
                     }
 
                     if !task.subtasks.isEmpty {
-                        SubtaskList(subtasks: task.subtasks)
+                        SubtaskList(task: task)
                             .padding(.top, 4)
                     }
 
@@ -373,10 +377,11 @@ private struct CategoryTag: View {
 }
 
 private struct SubtaskList: View {
-    let subtasks: [Subtask]
-    @Environment(\.modelContext) private var ctx
+    let task: PlanTask
+    @Environment(\.modelContext)  private var ctx
+    @Environment(SyncEngine.self) private var sync
 
-    private var sorted: [Subtask] { subtasks.sorted { $0.order < $1.order } }
+    private var sorted: [Subtask] { task.subtasks.sorted { $0.order < $1.order } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -386,6 +391,7 @@ private struct SubtaskList: View {
                         .onTapGesture {
                             sub.done.toggle()
                             try? ctx.save()
+                            sync.pushUpdate(task)
                         }
                     Text(sub.title)
                         .font(.system(size: 12))

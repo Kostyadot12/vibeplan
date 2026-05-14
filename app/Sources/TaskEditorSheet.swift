@@ -11,6 +11,7 @@ struct TaskEditorSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
+    @Environment(SyncEngine.self) private var sync
 
     @State private var title: String = ""
     @State private var note: String = ""
@@ -514,6 +515,8 @@ struct TaskEditorSheet: View {
                 Subtask(title: d.title, done: d.done, order: idx)
             }
             ctx.insert(task)
+            try? ctx.save()
+            sync.pushCreate(task)
 
         case .edit(let task):
             task.title = title
@@ -526,15 +529,18 @@ struct TaskEditorSheet: View {
             task.subtasks = subtaskDrafts.enumerated().map { idx, d in
                 Subtask(title: d.title, done: d.done, order: idx)
             }
+            try? ctx.save()
+            sync.pushUpdate(task)
         }
-        try? ctx.save()
         dismiss()
     }
 
     private func deleteAndClose() {
         if case .edit(let task) = mode {
+            let sid = task.serverId
             ctx.delete(task)
             try? ctx.save()
+            sync.pushDelete(serverId: sid)
         }
         dismiss()
     }
