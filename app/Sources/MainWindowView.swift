@@ -1,40 +1,142 @@
 import SwiftUI
+import SwiftData
 
 struct MainWindowView: View {
+    @Environment(\.modelContext) private var ctx
+
+    @State private var selectedDate: Date = CalendarUtil.startOfDay(.now)
+    @State private var monthAnchor: Date  = CalendarUtil.startOfMonth(.now)
+    @State private var editingTask: PlanTask?
+    @State private var addingForDate: Date?
+
     var body: some View {
         ZStack {
             VibePlanTheme.backgroundGradient
                 .ignoresSafeArea()
 
-            VStack(spacing: 14) {
-                Image(systemName: "calendar")
-                    .font(.system(size: 56, weight: .light))
-                    .foregroundStyle(VibePlanTheme.ink700)
+            VStack(spacing: 0) {
+                ToolbarBar(
+                    onToday: goToToday,
+                    onAdd: { addingForDate = selectedDate }
+                )
+                Divider().opacity(0.4)
 
-                Text("VibePlan")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(VibePlanTheme.ink900)
+                HStack(spacing: 0) {
+                    MonthGridView(
+                        monthAnchor: $monthAnchor,
+                        selectedDate: $selectedDate
+                    )
+                    .frame(minWidth: 700)
 
-                Text("Phase 0 · skeleton build")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(VibePlanTheme.ink500)
-                    .textCase(.uppercase)
-                    .tracking(0.8)
+                    Divider().opacity(0.4)
 
-                Text("Если ты это видишь — сборка работает.\nДальше — экран логина, месяц-сетка, синк через бэк.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(VibePlanTheme.ink500)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 8)
-                    .frame(maxWidth: 420)
+                    DayPanelView(
+                        date: selectedDate,
+                        onEdit:   { editingTask = $0 },
+                        onAddTap: { addingForDate = selectedDate }
+                    )
+                    .frame(width: 420)
+                }
             }
-            .padding(40)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.7), lineWidth: 1)
-            )
-            .shadow(color: Color(hex: 0x3C3258, alpha: 0.18), radius: 24, x: 0, y: 10)
         }
+        .sheet(item: $editingTask) { task in
+            TaskEditorSheet(mode: .edit(task))
+                .frame(minWidth: 460, minHeight: 560)
+        }
+        .sheet(item: Binding(
+            get: { addingForDate.map { DateBox(date: $0) } },
+            set: { addingForDate = $0?.date }
+        )) { box in
+            TaskEditorSheet(mode: .add(defaultDate: box.date))
+                .frame(minWidth: 460, minHeight: 560)
+        }
+    }
+
+    private func goToToday() {
+        let today = CalendarUtil.startOfDay(.now)
+        selectedDate = today
+        monthAnchor = CalendarUtil.startOfMonth(today)
+    }
+}
+
+/// Wrap a Date as Identifiable so we can drive a sheet from an optional Date.
+private struct DateBox: Identifiable {
+    let date: Date
+    var id: TimeInterval { date.timeIntervalSinceReferenceDate }
+}
+
+// MARK: – Toolbar
+
+private struct ToolbarBar: View {
+    let onToday: () -> Void
+    let onAdd: () -> Void
+
+    @State private var scope: Int = 1 // 0 personal, 1 team — stub for Phase 1
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Scope switch (cosmetic until Phase 3)
+            HStack(spacing: 0) {
+                scopeButton("Личные", index: 0)
+                scopeButton("Командные", index: 1)
+            }
+            .padding(3)
+            .background(Color.black.opacity(0.06), in: Capsule())
+
+            // Search placeholder
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                Text("Поиск…")
+                Spacer()
+            }
+            .font(.system(size: 13))
+            .foregroundStyle(VibePlanTheme.ink400)
+            .padding(.horizontal, 14)
+            .frame(height: 32)
+            .frame(maxWidth: 320)
+            .background(.white.opacity(0.55), in: Capsule())
+            .overlay(Capsule().stroke(Color.black.opacity(0.06)))
+
+            Spacer()
+
+            Button(action: onToday) {
+                Label("Сегодня", systemImage: "arrow.counterclockwise")
+                    .font(.system(size: 13, weight: .medium))
+                    .padding(.horizontal, 14)
+                    .frame(height: 32)
+            }
+            .buttonStyle(.plain)
+            .background(.white.opacity(0.6), in: Capsule())
+            .overlay(Capsule().stroke(Color.black.opacity(0.08)))
+
+            Button(action: onAdd) {
+                Label("Задача", systemImage: "plus")
+                    .font(.system(size: 13, weight: .semibold))
+                    .padding(.horizontal, 14)
+                    .frame(height: 32)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white)
+            .background(VibePlanTheme.ink900, in: Capsule())
+            .shadow(color: .black.opacity(0.18), radius: 6, x: 0, y: 3)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+    }
+
+    private func scopeButton(_ title: String, index: Int) -> some View {
+        Button(action: { scope = index }) {
+            Text(title)
+                .font(.system(size: 13, weight: .medium))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(scope == index ? Color.white : Color.clear)
+                        .shadow(color: scope == index ? .black.opacity(0.06) : .clear, radius: 2, y: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(scope == index ? VibePlanTheme.ink900 : VibePlanTheme.ink500)
     }
 }

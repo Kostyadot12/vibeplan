@@ -3,8 +3,9 @@
 Нативный macOS-таскбоард с минималистичным календарём для небольшой команды.
 Несколько человек создают, перетаскивают, выстраивают задачи в общем графике.
 
-> **Статус: Phase 0 — skeleton.** Окно собирается, открывается, виден тёплый
-> фон в стиле дизайн-системы. UI календаря, бэк и синк — следующие фазы.
+> **Статус: Phase 1 — рабочий локальный календарь.** Месяц-сетка, таймлайн
+> дня, создание/редактирование/удаление задач, чеклисты, категории, статусы.
+> Данные — локально в SwiftData. Бэк, синк и команда — следующие фазы.
 
 ---
 
@@ -24,9 +25,14 @@
 vibeplan/
 ├── app/                          ← macOS-приложение
 │   ├── Sources/                  ← .swift файлы
-│   │   ├── App.swift             ← @main entry point
-│   │   ├── MainWindowView.swift  ← заглушка для Phase 0
-│   │   └── Theme.swift           ← дизайн-токены (цвета, градиенты)
+│   │   ├── App.swift             ← @main + ModelContainer + одноразовый seed
+│   │   ├── Model.swift           ← SwiftData @Model: PlanTask, Subtask, Category, Status
+│   │   ├── Seed.swift            ← начальные данные на первый запуск
+│   │   ├── MainWindowView.swift  ← layout: тулбар + грид + side panel
+│   │   ├── MonthGridView.swift   ← месяц-сетка 7×6 с пилюлями
+│   │   ├── DayPanelView.swift    ← таймлайн дня + карточки задач
+│   │   ├── TaskEditorSheet.swift ← модалка «Новая / Редактировать»
+│   │   └── Theme.swift           ← дизайн-токены
 │   ├── Resources/
 │   │   ├── AppIcon-Original.png  ← исходник от ChatGPT (1254×1254 RGB)
 │   │   ├── AppIcon-Source.png    ← 1024×1024 RGBA, фон вырезан
@@ -101,10 +107,11 @@ python3 process_icon.py   # требуется pillow: pip install pillow
 
 ## Дальше
 
-- [ ] Phase 1 — UI без бэка: месяц-сетка, side panel дня, drag-and-drop
-      (SwiftData локально)
-- [ ] Phase 2 — Backend: Fastify + Prisma + Postgres
-- [ ] Phase 3 — Auth (email + 6-значный код, Keychain для JWT)
-- [ ] Phase 4 — Sync: REST + last-write-wins
-- [ ] Phase 5 — Realtime через WebSocket
-- [ ] Phase 6 — Polish: иконка, анимации, пустые состояния
+- [x] **Phase 0** — Скелет + GitHub Actions (v0.1.0)
+- [x] **Phase 1** — Месяц-сетка + таймлайн + редактор + SwiftData (v0.2.0)
+- [ ] **Phase 1.x** — Drag&drop между днями, Inbox/«Неразобранное», поиск
+- [ ] **Phase 2** — Backend: Fastify + Prisma + Postgres + WebSocket
+- [ ] **Phase 3** — Auth (email + 6-значный код, Keychain для JWT)
+- [ ] **Phase 4** — Sync: REST + last-write-wins
+- [ ] **Phase 5** — Realtime через WebSocket
+- [ ] **Phase 6** — Polish: анимации, пустые состояния, dark mode
