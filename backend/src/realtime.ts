@@ -1,51 +1,53 @@
-/// Realtime hub: holds all connected WebSocket clients and broadcasts task
-/// events. One instance per server process — fine for a single-team
-/// deployment. For multi-tenant, key the map by teamId.
+/// Realtime hub: holds connected WebSocket clients and broadcasts events.
+/// Now supports per-user routing so we can scope task events to space
+/// members only (no leaking personal/space data to non-members).
 
 import type { WebSocket } from "@fastify/websocket";
-import type { TaskDTO } from "./dto.js";
+import type { TaskDTO, SpaceDTO } from "./dto.js";
 
-export type TaskEvent =
-  | { type: "task.created"; task: TaskDTO; originClientId: string | null }
-  | { type: "task.updated"; task: TaskDTO; originClientId: string | null }
-  | { type: "task.deleted"; id:   string;  originClientId: string | null }
-  | { type: "hello";        userId: string }
+export type RealtimeEvent =
+  | { type: "task.created";  task: TaskDTO; originClientId: string | null }
+  | { type: "task.updated";  task: TaskDTO; originClientId: string | null }
+  | { type: "task.deleted";  id:   string;  originClientId: string | null }
+  | { type: "space.created"; space: SpaceDTO }
+  | { type: "space.updated"; space: SpaceDTO }
+  | { type: "space.deleted"; id:    string }
+  | { type: "hello";         userId: string }
   | { type: "ping" };
 
 interface Client {
   socket: WebSocket;
   userId: string;
-  clientId: string | null;   // app-instance UUID, used for echo prevention
+  clientId: string | null;
 }
 
 class RealtimeHub {
   private clients = new Set<Client>();
 
-  add(client: Client) {
-    this.clients.add(client);
+  add(client: Client) { this.clients.add(client); }
+  remove(client: Client) { this.clients.delete(client); }
+  get count(): number { return this.clients.size; }
+
+  /** Send to every connected socket — use only for non-sensitive events. */
+  broadcast(event: RealtimeEvent) {
+    const payload = JSON.stringify(event);
+    for (const c of this.clients) this.send(c, payload);
   }
 
-  remove(client: Client) {
-    this.clients.delete(client);
-  }
-
-  /** Number of currently-connected sockets. */
-  get count(): number {
-    return this.clients.size;
-  }
-
-  /** Send to every connected client. */
-  broadcast(event: TaskEvent) {
+  /** Send to sockets owned by any of the given userIds. */
+  broadcastToUsers(userIds: string[], event: RealtimeEvent) {
+    if (userIds.length === 0) return;
+    const set = new Set(userIds);
     const payload = JSON.stringify(event);
     for (const c of this.clients) {
-      try {
-        if (c.socket.readyState === c.socket.OPEN) {
-          c.socket.send(payload);
-        }
-      } catch {
-        // ignore — onClose will clean up
-      }
+      if (set.has(c.userId)) this.send(c, payload);
     }
+  }
+
+  private send(c: Client, payload: string) {
+    try {
+      if (c.socket.readyState === c.socket.OPEN) c.socket.send(payload);
+    } catch { /* socket close handler will clean up */ }
   }
 }
 

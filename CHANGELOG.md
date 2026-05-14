@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.5.4 — Spaces (папки/команды) + реальная приватность
+
+Заменили статичный «командный» режим на полноценные **пространства**
+(folders / spaces). Теперь у тебя есть «Личные» + сколько угодно общих
+папок, в которые можно приглашать людей по email.
+
+### Backend
+
+- Новые модели Prisma:
+  - `Space` (id, name, color, ownerId)
+  - `SpaceMember` (M:N user ↔ space, role: owner|member)
+  - `PendingSpaceInvite` — для пригласов до того как user зарегался
+- `Task.spaceId: String?` — NULL = личная (видна только creator), иначе
+  принадлежит space (видна всем members)
+- Routes:
+  - `GET /spaces` — мои пространства
+  - `POST /spaces` — создать (я owner)
+  - `PATCH /spaces/:id` — переименовать/перекрасить (owner only)
+  - `DELETE /spaces/:id` — удалить, задачи становятся личными creator'ов
+  - `POST /spaces/:id/members` — пригласить email (auto-whitelist + pending)
+  - `DELETE /spaces/:id/members/:userId` — kick (owner) или leave (self)
+- `GET /tasks?scope=personal|<spaceId>` — фильтр по scope; без параметра
+  возвращает всё что мне видно
+- WebSocket scoped broadcast: `task.*` события идут только members'ам space
+  (или creator'у для личных). Новые события `space.created/updated/deleted`
+- При логине resolve'им `PendingSpaceInvite` → SpaceMember автоматом
+
+### App
+
+- Новые SwiftData модели: `Space`, `SpaceMember`
+- `PlanTask.spaceServerId: String?` + `creatorServerId: String?`
+- `Scope` enum + `SpacesRoster` (@Observable, восстанавливает scope из
+  UserDefaults между запусками)
+- Тулбар: вместо переключателя Личные/Командные — Menu со списком
+  пространств + «Создать пространство…» + «Настроить…» (для текущего)
+- `SpaceSheet`: создание/настройка/приглашение/удаление
+- `MonthGrid`/`DayPanel`/`InboxBar` фильтруют задачи по текущему scope
+- `TaskEditor`: новые задачи наследуют scope; assignee picker показывает
+  только members текущего пространства (в личном scope скрыт)
+- `RealtimeClient` обрабатывает `space.*` события — список пространств
+  обновляется в реальном времени когда тебя пригласили / выкинули
+
+### UX
+
+- Twin-cap toggle убран — заменён на drop-down пилюлю с иконкой и chevron
+- Цвет иконки в дропдауне = цвет выбранного пространства
+
 ## 0.5.3 — fix dark-mode invisibility + sweep-pass on text contrast
 
 - **Force `.preferredColorScheme(.light)` на корне** WindowGroup, плюс

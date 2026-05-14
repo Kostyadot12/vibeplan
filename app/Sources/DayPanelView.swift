@@ -7,9 +7,10 @@ struct DayPanelView: View {
     let onEdit: (PlanTask) -> Void
     let onAddTap: () -> Void
 
-    @Environment(\.modelContext) private var ctx
-    @Environment(DragState.self) private var dragState
-    @Environment(SyncEngine.self) private var sync
+    @Environment(\.modelContext)    private var ctx
+    @Environment(DragState.self)    private var dragState
+    @Environment(SyncEngine.self)   private var sync
+    @Environment(SpacesRoster.self) private var spacesRoster
     @Query private var allTasks: [PlanTask]
 
     private let firstHour = 7
@@ -20,6 +21,7 @@ struct DayPanelView: View {
             .filter {
                 !$0.inInbox
                 && CalendarUtil.isSameDay($0.startDate, date)
+                && matchesScope($0, scope: spacesRoster.scope)
                 && matchesSearch($0)
             }
             .sorted { $0.startDate < $1.startDate }

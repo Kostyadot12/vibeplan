@@ -147,6 +147,7 @@ private extension TaskCreatePayload {
             status: task.status.rawValue,
             sortOrder: task.sortOrder,
             inInbox: task.inInbox,
+            spaceId: task.spaceServerId,
             subtasks: task.subtasks.sorted { $0.order < $1.order }.map {
                 SubtaskCreatePayload(title: $0.title, done: $0.done, order: $0.order)
             },
@@ -166,6 +167,7 @@ private extension TaskPatchPayload {
             status: task.status.rawValue,
             sortOrder: task.sortOrder,
             inInbox: task.inInbox,
+            spaceId: .some(task.spaceServerId),   // explicit: send even null
             subtasks: task.subtasks.sorted { $0.order < $1.order }.map {
                 SubtaskCreatePayload(title: $0.title, done: $0.done, order: $0.order)
             },
@@ -185,7 +187,9 @@ extension PlanTask {
             status:   PlanStatus(rawValue: r.status)   ?? .open,
             sortOrder: r.sortOrder,
             inInbox: r.inInbox,
-            serverId: r.id
+            serverId: r.id,
+            spaceServerId: r.spaceId,
+            creatorServerId: r.creatorId
         )
         task.subtasks = r.subtasks.map {
             Subtask(title: $0.title, done: $0.done, order: $0.order, serverId: $0.id)
@@ -205,6 +209,8 @@ extension PlanTask {
         self.status   = PlanStatus(rawValue: r.status)   ?? .open
         self.sortOrder = r.sortOrder
         self.inInbox = r.inInbox
+        self.spaceServerId = r.spaceId
+        self.creatorServerId = r.creatorId
         // Replace-all for subtasks/assignees (matches backend semantics)
         self.subtasks = r.subtasks.map {
             Subtask(title: $0.title, done: $0.done, order: $0.order, serverId: $0.id)

@@ -94,6 +94,71 @@ struct APIClient {
         try await get("team")
     }
 
+    // MARK: – Spaces
+
+    func listSpaces() async throws -> [SpaceDTO] {
+        try await get("spaces")
+    }
+
+    func createSpace(name: String, color: String) async throws -> SpaceDTO {
+        try await post("spaces", SpaceCreatePayload(name: name, color: color))
+    }
+
+    func updateSpace(id: String, patch: SpacePatchPayload) async throws -> SpaceDTO {
+        try await patchJSON("spaces/\(id)", patch)
+    }
+
+    func deleteSpace(id: String) async throws {
+        try await voidDelete("spaces/\(id)")
+    }
+
+    /// Returns the updated SpaceDTO if the user already had an account; nil
+    /// if a pending invitation was created for a not-yet-registered email.
+    func inviteToSpace(spaceId: String, email: String, role: String = "member") async throws -> SpaceDTO? {
+        let payload = SpaceInvitePayload(email: email, role: role)
+        guard let url = URL(string: "spaces/\(spaceId)/members", relativeTo: baseURL) else {
+            throw APIError.invalidURL
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(RealtimeClient.clientId, forHTTPHeaderField: "X-Client-Id")
+        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        req.httpBody = try Self.invitePayloadEncoder.encode(payload)
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw APIError.http(-1, "no http") }
+        if !(200..<300).contains(http.statusCode) {
+            throw APIError.http(http.statusCode, String(data: data, encoding: .utf8) ?? "")
+        }
+        // 202 → pending; 201 → SpaceDTO
+        if http.statusCode == 202 { return nil }
+        return try Self.spaceDecoder.decode(SpaceDTO.self, from: data)
+    }
+
+    func removeMember(spaceId: String, userId: String) async throws {
+        try await voidDelete("spaces/\(spaceId)/members/\(userId)")
+    }
+
+    private static let invitePayloadEncoder: JSONEncoder = {
+        let e = JSONEncoder()
+        return e
+    }()
+
+    private static let spaceDecoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .custom { decoder in
+            let c = try decoder.singleValueContainer()
+            let s = try c.decode(String.self)
+            let f1 = ISO8601DateFormatter(); f1.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let d = f1.date(from: s) { return d }
+            let f2 = ISO8601DateFormatter(); f2.formatOptions = [.withInternetDateTime]
+            if let d = f2.date(from: s) { return d }
+            throw DecodingError.dataCorruptedError(in: c, debugDescription: "bad iso8601: \(s)")
+        }
+        return d
+    }()
+
     // MARK: – Internals
 
     private func get<R: Decodable>(_ path: String) async throws -> R {

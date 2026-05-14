@@ -9,10 +9,13 @@ struct VibePlanApp: App {
     @State private var sync: SyncEngine
     @State private var realtime: RealtimeClient
     @State private var roster: TeamRoster
+    @State private var spacesRoster: SpacesRoster
 
     init() {
         do {
-            container = try ModelContainer(for: PlanTask.self, Subtask.self, TaskAssignee.self)
+            container = try ModelContainer(
+                for: PlanTask.self, Subtask.self, TaskAssignee.self, Space.self, SpaceMember.self
+            )
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
         }
@@ -30,11 +33,13 @@ struct VibePlanApp: App {
         let sync = SyncEngine(auth: auth, settings: settings, container: container)
         let rt   = RealtimeClient(auth: auth, settings: settings, container: container)
         let rost = TeamRoster(auth: auth, settings: settings)
-        _auth     = State(initialValue: auth)
-        _settings = State(initialValue: settings)
-        _sync     = State(initialValue: sync)
-        _realtime = State(initialValue: rt)
-        _roster   = State(initialValue: rost)
+        let sp   = SpacesRoster(auth: auth, settings: settings)
+        _auth         = State(initialValue: auth)
+        _settings     = State(initialValue: settings)
+        _sync         = State(initialValue: sync)
+        _realtime     = State(initialValue: rt)
+        _roster       = State(initialValue: rost)
+        _spacesRoster = State(initialValue: sp)
     }
 
     var body: some Scene {
@@ -45,13 +50,17 @@ struct VibePlanApp: App {
                 .environment(sync)
                 .environment(realtime)
                 .environment(roster)
+                .environment(spacesRoster)
                 .frame(minWidth: 1100, minHeight: 720)
                 .preferredColorScheme(.light)   // user chose «только светлая» — force it
                 .tint(VibePlanTheme.ink900)
                 .task { @MainActor in
+                    realtime.spacesRoster = spacesRoster
                     if auth.isAuthenticated {
+                        spacesRoster.restoreScope()
                         await sync.fullSync()
                         await roster.refresh()
+                        await spacesRoster.refresh()
                         realtime.start()
                     }
                 }
@@ -72,6 +81,7 @@ private struct RootView: View {
     @Environment(SyncEngine.self)     private var sync
     @Environment(RealtimeClient.self) private var realtime
     @Environment(TeamRoster.self)     private var roster
+    @Environment(SpacesRoster.self)   private var spacesRoster
 
     var body: some View {
         Group {
@@ -84,8 +94,10 @@ private struct RootView: View {
         .onChange(of: auth.isAuthenticated) { _, nowAuthed in
             if nowAuthed {
                 Task { @MainActor in
+                    spacesRoster.restoreScope()
                     await sync.fullSync()
                     await roster.refresh()
+                    await spacesRoster.refresh()
                     realtime.start()
                 }
             } else {

@@ -21,6 +21,8 @@ export const TaskCreateInput = z.object({
   status:           Status.default("open"),
   sortOrder:        z.number().int().default(0),
   inInbox:          z.boolean().default(false),
+  // null/missing → personal task; otherwise the task lives in this space.
+  spaceId:          z.string().nullish(),
   subtasks:         z.array(SubtaskInput).default([]),
   assigneeIds:      z.array(z.string()).default([])
 });
@@ -34,8 +36,24 @@ export const TaskPatchInput = z.object({
   status:           Status.optional(),
   sortOrder:        z.number().int().optional(),
   inInbox:          z.boolean().optional(),
+  spaceId:          z.string().nullish(),
   subtasks:         z.array(SubtaskInput).optional(),
   assigneeIds:      z.array(z.string()).optional()
+});
+
+export const SpaceCreateInput = z.object({
+  name:  z.string().min(1).max(80),
+  color: z.enum(["personal", "work", "urgent", "ideas", "learning"]).default("work")
+});
+
+export const SpacePatchInput = z.object({
+  name:  z.string().min(1).max(80).optional(),
+  color: z.enum(["personal", "work", "urgent", "ideas", "learning"]).optional()
+});
+
+export const SpaceInviteInput = z.object({
+  email: z.string().email(),
+  role:  z.enum(["owner", "member"]).default("member")
 });
 
 export type TaskCreate = z.infer<typeof TaskCreateInput>;

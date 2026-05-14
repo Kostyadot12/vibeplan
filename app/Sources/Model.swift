@@ -17,6 +17,12 @@ final class PlanTask {
     /// Server-assigned id once this task has been synced. nil → never pushed.
     var serverId: String? = nil
 
+    /// Server id of the space this task belongs to. nil → personal (creator only).
+    var spaceServerId: String? = nil
+
+    /// Server id of the user who created this task.
+    var creatorServerId: String? = nil
+
     @Relationship(deleteRule: .cascade)
     var subtasks: [Subtask] = []
 
@@ -32,7 +38,9 @@ final class PlanTask {
         status: PlanStatus = .open,
         sortOrder: Int = 0,
         inInbox: Bool = false,
-        serverId: String? = nil
+        serverId: String? = nil,
+        spaceServerId: String? = nil,
+        creatorServerId: String? = nil
     ) {
         self.title = title
         self.note = note
@@ -44,6 +52,8 @@ final class PlanTask {
         self.createdAt = .now
         self.inInbox = inInbox
         self.serverId = serverId
+        self.spaceServerId = spaceServerId
+        self.creatorServerId = creatorServerId
     }
 
     var category: PlanCategory {
@@ -88,6 +98,44 @@ final class TaskAssignee {
         self.userId = userId
         self.email = email
         self.name = name
+    }
+}
+
+/// A "space" — a folder/team with members, owns tasks visible to its members.
+@Model
+final class Space {
+    var serverId: String
+    var name: String
+    var colorRaw: String     // matches PlanCategory raw values
+    var ownerId: String
+
+    @Relationship(deleteRule: .cascade)
+    var members: [SpaceMember] = []
+
+    init(serverId: String, name: String, colorRaw: String = "work", ownerId: String) {
+        self.serverId = serverId
+        self.name = name
+        self.colorRaw = colorRaw
+        self.ownerId = ownerId
+    }
+
+    var color: PlanCategory {
+        PlanCategory(rawValue: colorRaw) ?? .work
+    }
+}
+
+@Model
+final class SpaceMember {
+    var userId: String
+    var email: String
+    var name: String
+    var role: String       // "owner" | "member"
+
+    init(userId: String, email: String, name: String, role: String) {
+        self.userId = userId
+        self.email = email
+        self.name = name
+        self.role = role
     }
 }
 

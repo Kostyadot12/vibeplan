@@ -30,12 +30,18 @@ model Task {
   creatorId String?
   creator   User?   @relation("CreatedTasks", fields: [creatorId], references: [id])
 
+  // Phase 6: where this task lives. NULL = personal (visible only to creator).
+  // Otherwise belongs to a space and is visible to all space members.
+  spaceId String?
+  space   Space?  @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+
   subtasks  Subtask[]
   assignees TaskAssignee[]
 
   @@index([startDate])
   @@index([inInbox])
   @@index([creatorId])
+  @@index([spaceId])
 }
 
 model User {
@@ -45,8 +51,57 @@ model User {
   role      String   @default("member") // "admin" | "member"
   createdAt DateTime @default(now())
 
-  createdTasks  Task[]         @relation("CreatedTasks")
-  assignedTasks TaskAssignee[]
+  createdTasks   Task[]         @relation("CreatedTasks")
+  assignedTasks  TaskAssignee[]
+  ownedSpaces    Space[]        @relation("OwnedSpaces")
+  spaceMemberships SpaceMember[]
+}
+
+// A "space" is a folder/team — set of tasks visible to its members.
+// Owner can rename, recolor, invite, kick, delete.
+model Space {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("work")  // matches PlanCategory palette
+  createdAt DateTime @default(now())
+
+  ownerId String
+  owner   User   @relation("OwnedSpaces", fields: [ownerId], references: [id])
+
+  members SpaceMember[]
+  tasks   Task[]
+  pendingInvites PendingSpaceInvite[]
+
+  @@index([ownerId])
+}
+
+// Many-to-many: which users belong to which space.
+model SpaceMember {
+  spaceId  String
+  userId   String
+  role     String   @default("member")  // "owner" | "member"
+  joinedAt DateTime @default(now())
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([spaceId, userId])
+  @@index([userId])
+}
+
+// Invitation issued for an email that has no User record yet. Resolved into
+// a SpaceMember on the user's first login.
+model PendingSpaceInvite {
+  id        String   @id @default(cuid())
+  email     String
+  spaceId   String
+  role      String   @default("member")
+  invitedAt DateTime @default(now())
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@unique([email, spaceId])
+  @@index([email])
 }
 
 // M:N join table — multiple users can be assigned to one task.

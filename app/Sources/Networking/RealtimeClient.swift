@@ -35,6 +35,10 @@ final class RealtimeClient {
     private var reconnectWork: Task<Void, Never>?
     private var stopped: Bool = false
 
+    /// Optional pointer to the SpacesRoster — set by App.swift so we can apply
+    /// space.* events. Keeping it weak avoids retain cycles.
+    weak var spacesRoster: SpacesRoster?
+
     init(auth: AuthState, settings: AppSettings, container: ModelContainer) {
         self.auth = auth
         self.settings = settings
@@ -137,10 +141,34 @@ final class RealtimeClient {
             if let id = envelope["id"] as? String {
                 applyDelete(serverId: id)
             }
+        case "space.created", "space.updated":
+            if let spaceJSON = envelope["space"],
+               let raw = try? JSONSerialization.data(withJSONObject: spaceJSON),
+               let dto = try? Self.spaceDecoder.decode(SpaceDTO.self, from: raw) {
+                spacesRoster?.upsert(dto)
+            }
+        case "space.deleted":
+            if let id = envelope["id"] as? String {
+                spacesRoster?.remove(spaceId: id)
+            }
         default:
             break
         }
     }
+
+    private static let spaceDecoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .custom { decoder in
+            let c = try decoder.singleValueContainer()
+            let s = try c.decode(String.self)
+            let f1 = ISO8601DateFormatter(); f1.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let d = f1.date(from: s) { return d }
+            let f2 = ISO8601DateFormatter(); f2.formatOptions = [.withInternetDateTime]
+            if let d = f2.date(from: s) { return d }
+            throw DecodingError.dataCorruptedError(in: c, debugDescription: "bad iso8601: \(s)")
+        }
+        return d
+    }()
 
     @MainActor
     private func handleFailure(_ error: Error) {

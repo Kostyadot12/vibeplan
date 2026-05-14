@@ -7,9 +7,10 @@ struct MonthGridView: View {
     @Binding var selectedDate: Date
     let searchQuery: String
 
-    @Environment(\.modelContext) private var ctx
-    @Environment(DragState.self) private var dragState
-    @Environment(SyncEngine.self) private var sync
+    @Environment(\.modelContext)    private var ctx
+    @Environment(DragState.self)    private var dragState
+    @Environment(SyncEngine.self)   private var sync
+    @Environment(SpacesRoster.self) private var spacesRoster
     @Query private var allTasks: [PlanTask]
 
     private let weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
@@ -124,7 +125,12 @@ struct MonthGridView: View {
 
     private func tasks(on date: Date) -> [PlanTask] {
         allTasks
-            .filter { !$0.inInbox && CalendarUtil.isSameDay($0.startDate, date) && matches(searchQuery, $0) }
+            .filter {
+                !$0.inInbox
+                && CalendarUtil.isSameDay($0.startDate, date)
+                && matchesScope($0, scope: spacesRoster.scope)
+                && matches(searchQuery, $0)
+            }
             .sorted { $0.startDate < $1.startDate }
     }
 

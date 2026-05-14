@@ -7,16 +7,17 @@ struct InboxBar: View {
     let searchQuery: String
     let onEdit: (PlanTask) -> Void
 
-    @Environment(\.modelContext) private var ctx
-    @Environment(DragState.self) private var dragState
-    @Environment(SyncEngine.self) private var sync
+    @Environment(\.modelContext)    private var ctx
+    @Environment(DragState.self)    private var dragState
+    @Environment(SyncEngine.self)   private var sync
+    @Environment(SpacesRoster.self) private var spacesRoster
     @Query private var allTasks: [PlanTask]
 
     @State private var hoveringDrop: Bool = false
 
     private var inboxTasks: [PlanTask] {
         allTasks
-            .filter { $0.inInbox && matchesSearch($0) }
+            .filter { $0.inInbox && matchesScope($0, scope: spacesRoster.scope) && matchesSearch($0) }
             .sorted { $0.createdAt > $1.createdAt }
     }
 

@@ -12,6 +12,7 @@ struct MainWindowView: View {
     @State private var inboxExpanded: Bool = false
     @State private var settingsOpen: Bool = false
     @State private var searchQuery: String = ""
+    @State private var spaceSheetMode: SpaceSheetMode?
 
     var body: some View {
         ZStack {
@@ -23,7 +24,9 @@ struct MainWindowView: View {
                     search: $searchQuery,
                     onToday: goToToday,
                     onAdd: { addingForDate = selectedDate },
-                    onSettings: { settingsOpen = true }
+                    onSettings: { settingsOpen = true },
+                    onCreateSpace: { spaceSheetMode = .create },
+                    onManageSpace: { id in spaceSheetMode = .manage(spaceId: id) }
                 )
                 Divider().opacity(0.4)
 
@@ -71,6 +74,9 @@ struct MainWindowView: View {
         .sheet(isPresented: $settingsOpen) {
             SettingsSheet().frame(minWidth: 520, minHeight: 480)
         }
+        .sheet(item: $spaceSheetMode) { mode in
+            SpaceSheet(mode: mode).frame(minWidth: 520, minHeight: 560)
+        }
     }
 
     private func goToToday() {
@@ -93,22 +99,17 @@ private struct ToolbarBar: View {
     let onToday: () -> Void
     let onAdd: () -> Void
     let onSettings: () -> Void
+    let onCreateSpace: () -> Void
+    let onManageSpace: (String) -> Void
 
     @Environment(AuthState.self)      private var auth
     @Environment(SyncEngine.self)     private var sync
     @Environment(RealtimeClient.self) private var realtime
-
-    @State private var scope: Int = 1 // 0 personal, 1 team — stub for Phase 1
+    @Environment(SpacesRoster.self)   private var spacesRoster
 
     var body: some View {
         HStack(spacing: 12) {
-            // Scope switch (cosmetic until Phase 3)
-            HStack(spacing: 0) {
-                scopeButton("Личные", index: 0)
-                scopeButton("Командные", index: 1)
-            }
-            .padding(3)
-            .background(Color.black.opacity(0.06), in: Capsule())
+            scopePicker
 
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
@@ -198,19 +199,83 @@ private struct ToolbarBar: View {
         .overlay(Capsule().stroke(Color.black.opacity(0.05)))
     }
 
-    private func scopeButton(_ title: String, index: Int) -> some View {
-        Button(action: { scope = index }) {
-            Text(title)
-                .font(.system(size: 13, weight: .medium))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(scope == index ? Color.white : Color.clear)
-                        .shadow(color: scope == index ? .black.opacity(0.06) : .clear, radius: 2, y: 1)
-                )
+    private var scopePicker: some View {
+        Menu {
+            Button(action: { spacesRoster.scope = .personal }) {
+                Label("Личные", systemImage: "person.fill")
+            }
+            if !spacesRoster.spaces.isEmpty {
+                Divider()
+                ForEach(spacesRoster.spaces) { s in
+                    Button(action: { spacesRoster.scope = .space(s.id) }) {
+                        Label(s.name, systemImage: "folder.fill")
+                    }
+                }
+            }
+            Divider()
+            Button(action: onCreateSpace) {
+                Label("Создать пространство…", systemImage: "plus.circle")
+            }
+            if case .space(let id) = spacesRoster.scope, spacesRoster.space(byId: id) != nil {
+                Button(action: { onManageSpace(id) }) {
+                    Label("Настроить пространство…", systemImage: "gearshape")
+                }
+            }
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: scopeIcon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(scopeIconColor)
+                Text(scopeTitle)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(VibePlanTheme.ink900)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(VibePlanTheme.ink400)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(Color.white, in: Capsule())
+            .overlay(Capsule().stroke(Color.black.opacity(0.08)))
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(scope == index ? VibePlanTheme.ink900 : VibePlanTheme.ink500)
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+
+    private var scopeTitle: String {
+        switch spacesRoster.scope {
+        case .personal: return "Личные"
+        case .space(let id):
+            if let s = spacesRoster.space(byId: id) { return s.name }
+            return "Пространство"
+        }
+    }
+
+    private var scopeIcon: String {
+        switch spacesRoster.scope {
+        case .personal: return "person.fill"
+        case .space:    return "folder.fill"
+        }
+    }
+
+    private var scopeIconColor: Color {
+        switch spacesRoster.scope {
+        case .personal: return VibePlanTheme.ink700
+        case .space(let id):
+            if let s = spacesRoster.space(byId: id),
+               let cat = PlanCategory(rawValue: s.color) {
+                return cat.color
+            }
+            return VibePlanTheme.ink700
+        }
+    }
+}
+
+extension SpaceSheetMode: Identifiable {
+    var id: String {
+        switch self {
+        case .create: return "__create__"
+        case .manage(let id): return "manage:\(id)"
+        }
     }
 }

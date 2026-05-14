@@ -86,6 +86,19 @@ export async function authRoutes(app: FastifyInstance) {
       create: { email, role }
     });
 
+    // Resolve any pending space invitations issued before this user existed.
+    const pending = await db.pendingSpaceInvite.findMany({ where: { email } });
+    for (const inv of pending) {
+      await db.spaceMember.upsert({
+        where:  { spaceId_userId: { spaceId: inv.spaceId, userId: user.id } },
+        update: { role: inv.role },
+        create: { spaceId: inv.spaceId, userId: user.id, role: inv.role }
+      });
+    }
+    if (pending.length > 0) {
+      await db.pendingSpaceInvite.deleteMany({ where: { email } });
+    }
+
     const token = app.jwt.sign({
       sub:   user.id,
       email: user.email,

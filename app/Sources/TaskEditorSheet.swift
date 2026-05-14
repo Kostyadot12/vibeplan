@@ -13,6 +13,7 @@ struct TaskEditorSheet: View {
     @Environment(\.modelContext) private var ctx
     @Environment(SyncEngine.self) private var sync
     @Environment(TeamRoster.self) private var roster
+    @Environment(SpacesRoster.self) private var spacesRoster
 
     @State private var title: String = ""
     @State private var note: String = ""
@@ -299,51 +300,64 @@ struct TaskEditorSheet: View {
 
     // MARK: – Assignees
 
-    private var assigneesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                sectionLabel("Исполнители")
-                Spacer()
-                if !assigneeIds.isEmpty {
-                    Text("\(assigneeIds.count) выбрано")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(VibePlanTheme.ink400)
-                }
+    /// In a space — pickable from that space's members.
+    /// In personal scope — assignees are hidden (only you see your own tasks).
+    private var availableAssignees: [TeamMemberDTO] {
+        switch spacesRoster.scope {
+        case .personal:
+            return []
+        case .space:
+            return spacesRoster.currentSpaceMembers.map {
+                TeamMemberDTO(id: $0.userId, email: $0.email, name: $0.name, role: $0.role)
             }
-            if roster.members.isEmpty {
-                HStack(spacing: 6) {
-                    if roster.loading { ProgressView().controlSize(.small) }
-                    Text(roster.loading ? "Загружаем команду…" : "В команде пока никого нет — добавьте email в Settings → Аккаунт → Admin (через бэкенд)")
+        }
+    }
+
+    @ViewBuilder
+    private var assigneesSection: some View {
+        if case .space = spacesRoster.scope {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    sectionLabel("Исполнители")
+                    Spacer()
+                    if !assigneeIds.isEmpty {
+                        Text("\(assigneeIds.count) выбрано")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(VibePlanTheme.ink400)
+                    }
+                }
+                if availableAssignees.isEmpty {
+                    Text("В пространстве пока только вы.")
                         .font(.system(size: 12))
                         .foregroundStyle(VibePlanTheme.ink500)
-                }
-                .padding(.vertical, 4)
-            } else {
-                FlowLayout(spacing: 6) {
-                    ForEach(roster.members) { m in
-                        Button(action: { toggleAssignee(m.id) }) {
-                            HStack(spacing: 7) {
-                                AvatarBadge(name: m.name, email: m.email, size: 18)
-                                Text(memberLabel(m))
-                                    .font(.system(size: 12.5, weight: .medium))
-                                if assigneeIds.contains(m.id) {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 10, weight: .bold))
+                        .padding(.vertical, 4)
+                } else {
+                    FlowLayout(spacing: 6) {
+                        ForEach(availableAssignees) { m in
+                            Button(action: { toggleAssignee(m.id) }) {
+                                HStack(spacing: 7) {
+                                    AvatarBadge(name: m.name, email: m.email, size: 18)
+                                    Text(memberLabel(m))
+                                        .font(.system(size: 12.5, weight: .medium))
+                                    if assigneeIds.contains(m.id) {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 10, weight: .bold))
+                                    }
                                 }
+                                .foregroundStyle(assigneeIds.contains(m.id) ? .white : VibePlanTheme.ink700)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 5)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(assigneeIds.contains(m.id) ? VibePlanTheme.ink900 : Color.white)
+                                )
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .stroke(assigneeIds.contains(m.id) ? Color.clear : Color.black.opacity(0.08))
+                                )
                             }
-                            .foregroundStyle(assigneeIds.contains(m.id) ? .white : VibePlanTheme.ink700)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 5)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(assigneeIds.contains(m.id) ? VibePlanTheme.ink900 : Color.white.opacity(0.7))
-                            )
-                            .overlay(
-                                Capsule(style: .continuous)
-                                    .stroke(assigneeIds.contains(m.id) ? Color.clear : Color.black.opacity(0.06))
-                            )
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -572,13 +586,20 @@ struct TaskEditorSheet: View {
         let merged = mergeDateAndTime()
         switch mode {
         case .add:
+            // New tasks inherit the current scope: personal → spaceServerId nil,
+            // a space scope → that space's id.
+            let inheritedSpaceId: String? = {
+                if case .space(let id) = spacesRoster.scope { return id }
+                return nil
+            }()
             let task = PlanTask(
                 title: title,
                 note: note,
                 startDate: merged,
                 durationMinutes: durationMinutes,
                 category: category,
-                status: status
+                status: status,
+                spaceServerId: inheritedSpaceId
             )
             task.subtasks = subtaskDrafts.enumerated().map { idx, d in
                 Subtask(title: d.title, done: d.done, order: idx)
@@ -618,8 +639,13 @@ struct TaskEditorSheet: View {
 
     private func assignees(for ids: Set<String>) -> [TaskAssignee] {
         ids.compactMap { id -> TaskAssignee? in
-            guard let m = roster.member(byId: id) else { return nil }
-            return TaskAssignee(userId: m.id, email: m.email, name: m.name)
+            if let m = spacesRoster.currentSpaceMembers.first(where: { $0.userId == id }) {
+                return TaskAssignee(userId: m.userId, email: m.email, name: m.name)
+            }
+            if let m = roster.member(byId: id) {
+                return TaskAssignee(userId: m.id, email: m.email, name: m.name)
+            }
+            return nil
         }
     }
 
