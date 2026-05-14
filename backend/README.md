@@ -21,19 +21,68 @@ curl -s http://localhost:4400/health | jq
 
 ## REST API
 
+### Публичные
 | Метод | Путь                    | Что делает                              |
 |-------|-------------------------|------------------------------------------|
 | GET   | `/health`               | живой? + версия                          |
+| POST  | `/auth/request-code`    | прислать 6-значный код на email          |
+| POST  | `/auth/verify`          | поменять `code` → JWT + user             |
+
+### Авторизация (Bearer JWT)
+| Метод | Путь                    | Что делает                              |
+|-------|-------------------------|------------------------------------------|
+| GET   | `/me`                   | текущий пользователь                     |
+| PATCH | `/me`                   | поменять имя                             |
 | GET   | `/tasks`                | список задач                             |
 | GET   | `/tasks/:id`            | одна задача с подзадачами                |
 | POST  | `/tasks`                | создать                                  |
 | PATCH | `/tasks/:id`            | обновить (любое подмножество полей)      |
 | DELETE| `/tasks/:id`            | удалить                                  |
 
+> **Заметка для Phase 3:** на `/tasks/*` пока auth-middleware **не** включён —
+> чтобы можно было пилить Phase 4 (синк в Mac-приложении) пошагово. Включим
+> когда клиент будет слать токен.
+
+### Админ (роль `admin`)
+| Метод | Путь                                      | Что делает                  |
+|-------|-------------------------------------------|------------------------------|
+| GET   | `/admin/allowed-emails`                   | список белого списка         |
+| POST  | `/admin/allowed-emails`                   | добавить email + роль        |
+| DELETE| `/admin/allowed-emails/:email`            | убрать из белого списка      |
+| GET   | `/admin/users`                            | зарегистрированные юзеры     |
+
 Фильтры на `GET /tasks`:
 - `?from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z` — диапазон по `startDate`
 - `?inbox=true` — только из «Неразобранного»
 - `?inbox=false` — только из календаря
+
+## Поток авторизации
+
+```
+       POST /auth/request-code { email }                       ┌─── допущен? ───┐
+client ─────────────────────────────────────────────► backend ─┤                │
+                                                               │   NO → 200 ok  │ (silently)
+                                                               │   YES          │
+                                                               ▼                │
+                                                       send 6-digit code        │
+                                                  (Resend if RESEND_API_KEY,    │
+                                                   иначе в server.log)          │
+       POST /auth/verify { email, code }                                        │
+client ─────────────────────────────────────────────► backend ──► upsert User,  │
+                                                                  выдать JWT     │
+       { token, user }                                                          │
+client ◄────────────────────────────────────────────────────────────────────────┘
+```
+
+Параметры по умолчанию: код действует **10 минут**, максимум **5 попыток** на код,
+дальше нужен новый. JWT живёт **30 дней** (`JWT_TTL` в `.env`).
+
+## Bootstrap admin
+
+При первом запуске, если белый список пустой, в него автоматом добавляется
+`BOOTSTRAP_ADMIN_EMAIL` из `.env` (по умолчанию `kos2cherdan@gmail.com`) с ролью `admin`.
+Если хотя бы один admin уже есть — bootstrap скипается. Это позволяет
+залогиниться с самого начала без out-of-band setup'а.
 
 ### Создание задачи
 
@@ -121,7 +170,7 @@ backend/
 
 ## Что НЕ реализовано (по фазам)
 
-- **Phase 3** — auth: email + 6-значный код, JWT, белый список email
-- **Phase 3** — модель `User` / `Team`, owner/assignee у задачи
-- **Phase 5** — WebSocket realtime
-- **Phase 6** — Resend для отправки кодов, rate-limit, метрики
+- **Phase 3.x** — assignees у задачи (M:N user↔task), `Task.creatorId` уже есть
+- **Phase 4** — клиент-сторона: Mac-приложение шлёт токен, синкается с бэком
+- **Phase 5** — WebSocket realtime (плагин `@fastify/websocket` рядом с REST)
+- **Phase 6** — rate-limit на `/auth/request-code`, метрики, sentry

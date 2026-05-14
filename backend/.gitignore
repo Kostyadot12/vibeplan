@@ -4,6 +4,10 @@ dist/
 .env.*
 !.env.example
 
+# Runtime logs (могут содержать verification codes!)
+server.log
+*.log
+
 # SQLite dev db
 prisma/dev.db
 prisma/dev.db-journal

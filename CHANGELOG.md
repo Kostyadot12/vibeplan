@@ -1,5 +1,22 @@
 # Changelog
 
+## Phase 3 — Auth на бэкенде
+
+- Prisma модели: `User`, `AllowedEmail`, `VerificationCode`
+- `Task.creatorId` (nullable) → `User` для будущих фильтров «мои задачи»
+- `@fastify/jwt` плагин, JWT с TTL 30 дней, секрет из `JWT_SECRET`
+- `POST /auth/request-code { email }` — генерирует 6-значный код, кладёт SHA-256
+  в БД, шлёт через Resend (если есть `RESEND_API_KEY`) или в `server.log`.
+  Не-whitelisted email отвечает `200 ok` без отправки (no oracle)
+- `POST /auth/verify { email, code }` — проверка через SHA-256, max 5 попыток,
+  10 мин TTL, upsert `User`, выдача JWT
+- `GET/PATCH /me` — текущий пользователь
+- `GET/POST/DELETE /admin/allowed-emails` — управление белым списком (роль `admin`)
+- `GET /admin/users` — список зарегистрированных
+- Bootstrap: при первом старте `BOOTSTRAP_ADMIN_EMAIL` (default `kos2cherdan@gmail.com`)
+  попадает в whitelist как admin, если он пустой
+- Бэкенд развёрнут как systemd-user service на этой машине: `82.38.68.48:4400`
+
 ## Phase 2 — Backend (без выхода DMG, only `backend/`)
 
 - Node 20 + TypeScript + Fastify + Prisma + SQLite (dev) / Postgres (prod)
