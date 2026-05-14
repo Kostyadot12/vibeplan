@@ -117,6 +117,7 @@ private struct ToolbarBar: View {
                           prompt: Text("Поиск…").foregroundStyle(VibePlanTheme.ink400))
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
+                    .foregroundStyle(VibePlanTheme.ink900)
                 if !search.isEmpty {
                     Button(action: { search = "" }) {
                         Image(systemName: "xmark.circle.fill")
@@ -138,11 +139,12 @@ private struct ToolbarBar: View {
             Button(action: onToday) {
                 Label("Сегодня", systemImage: "arrow.counterclockwise")
                     .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(VibePlanTheme.ink900)
                     .padding(.horizontal, 14)
                     .frame(height: 32)
             }
             .buttonStyle(.plain)
-            .background(.white.opacity(0.6), in: Capsule())
+            .background(Color.white.opacity(0.85), in: Capsule())
             .overlay(Capsule().stroke(Color.black.opacity(0.08)))
             .keyboardShortcut("t", modifiers: [.command])
 

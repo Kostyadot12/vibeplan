@@ -374,12 +374,14 @@ struct ServerSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Адрес сервера")
                 .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(VibePlanTheme.ink900)
 
             TextField("http://82.38.68.48:4400", text: $raw)
                 .textFieldStyle(.plain)
                 .font(.system(size: 14).monospacedDigit())
+                .foregroundStyle(VibePlanTheme.ink900)
                 .padding(.horizontal, 12).padding(.vertical, 10)
-                .background(.white, in: RoundedRectangle(cornerRadius: 10))
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black.opacity(0.08)))
 
             if let probeResult {
@@ -389,33 +391,43 @@ struct ServerSheet: View {
             }
 
             HStack {
-                Button("Проверить") { Task { await probe() } }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(.white, in: Capsule())
-                    .overlay(Capsule().stroke(Color.black.opacity(0.1)))
-                    .disabled(probing || URL(string: raw) == nil)
+                Button(action: { Task { await probe() } }) {
+                    Text("Проверить")
+                        .foregroundStyle(VibePlanTheme.ink900)
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(Color.white, in: Capsule())
+                        .overlay(Capsule().stroke(Color.black.opacity(0.12)))
+                }
+                .buttonStyle(.plain)
+                .disabled(probing || URL(string: raw) == nil)
 
                 Spacer()
 
-                Button("Отмена") { dismiss() }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(.white, in: Capsule())
-                    .overlay(Capsule().stroke(Color.black.opacity(0.1)))
-
-                Button("Сохранить") {
-                    if let url = URL(string: raw) { settings.backendURL = url }
-                    dismiss()
+                Button(action: { dismiss() }) {
+                    Text("Отмена")
+                        .foregroundStyle(VibePlanTheme.ink900)
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(Color.white, in: Capsule())
+                        .overlay(Capsule().stroke(Color.black.opacity(0.12)))
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16).padding(.vertical, 8)
-                .background(VibePlanTheme.ink900, in: Capsule())
+
+                Button(action: {
+                    if let url = URL(string: raw) { settings.backendURL = url }
+                    dismiss()
+                }) {
+                    Text("Сохранить")
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16).padding(.vertical, 8)
+                        .background(VibePlanTheme.ink900, in: Capsule())
+                }
+                .buttonStyle(.plain)
                 .disabled(URL(string: raw) == nil)
             }
         }
         .padding(20)
+        .background(Color(hex: 0xFAF8F4))
+        .preferredColorScheme(.light)
         .onAppear { raw = settings.backendURL.absoluteString }
     }
 

@@ -12,8 +12,9 @@ struct SettingsSheet: View {
 
     var body: some View {
         ZStack {
-            VibePlanTheme.backgroundGradient.ignoresSafeArea()
-            Color.white.opacity(0.4).ignoresSafeArea()
+            // Solid soft cream — no material/blend tricks; reads identical
+            // in any system appearance.
+            Color(hex: 0xFAF8F4).ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
                 header
@@ -30,6 +31,7 @@ struct SettingsSheet: View {
                 }
             }
         }
+        .preferredColorScheme(.light)
         .onAppear { serverDraft = settings.backendURL.absoluteString }
     }
 
@@ -37,13 +39,14 @@ struct SettingsSheet: View {
         HStack {
             Text("Настройки")
                 .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(VibePlanTheme.ink900)
             Spacer()
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(VibePlanTheme.ink500)
                     .frame(width: 28, height: 28)
-                    .background(.white.opacity(0.7), in: Circle())
+                    .background(.white.opacity(0.85), in: Circle())
                     .overlay(Circle().stroke(Color.black.opacity(0.06)))
             }
             .buttonStyle(.plain)
@@ -59,8 +62,9 @@ struct SettingsSheet: View {
             HStack(spacing: 12) {
                 UserBadge(user: auth.user, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(auth.user?.name.isEmpty == false ? auth.user!.name : (auth.user?.email ?? "—"))
+                    Text(displayName)
                         .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(VibePlanTheme.ink900)
                     Text(auth.user?.email ?? "")
                         .font(.system(size: 12))
                         .foregroundStyle(VibePlanTheme.ink500)
@@ -75,9 +79,14 @@ struct SettingsSheet: View {
                 }
             }
             .padding(14)
-            .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 12))
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black.opacity(0.06)))
         }
+    }
+
+    private var displayName: String {
+        if let name = auth.user?.name, !name.isEmpty { return name }
+        return auth.user?.email ?? "—"
     }
 
     // MARK: – Server
@@ -89,32 +98,41 @@ struct SettingsSheet: View {
                 TextField("http://82.38.68.48:4400", text: $serverDraft)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13).monospacedDigit())
+                    .foregroundStyle(VibePlanTheme.ink900)
                     .padding(.horizontal, 12).padding(.vertical, 10)
-                    .background(.white, in: RoundedRectangle(cornerRadius: 10))
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 10))
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black.opacity(0.08)))
 
                 if let probeText {
                     Text(probeText)
                         .font(.system(size: 11))
-                        .foregroundStyle(probeText.hasPrefix("✓") ? .green : .red)
+                        .foregroundStyle(probeText.hasPrefix("✓")
+                                         ? Color(red: 0.20, green: 0.58, blue: 0.30)
+                                         : Color(red: 0.78, green: 0.20, blue: 0.20))
                 }
 
-                HStack {
-                    Button("Проверить") { Task { await probe() } }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 12).padding(.vertical, 6)
-                        .background(.white, in: Capsule())
-                        .overlay(Capsule().stroke(Color.black.opacity(0.1)))
-                        .disabled(URL(string: serverDraft) == nil)
-                    Button("Сохранить") {
-                        if let url = URL(string: serverDraft) { settings.backendURL = url }
+                HStack(spacing: 8) {
+                    Button(action: { Task { await probe() } }) {
+                        Text("Проверить")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(VibePlanTheme.ink900)
+                            .padding(.horizontal, 14).padding(.vertical, 7)
+                            .background(Color.white, in: Capsule())
+                            .overlay(Capsule().stroke(Color.black.opacity(0.12)))
                     }
                     .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(VibePlanTheme.ink900, in: Capsule())
+                    .disabled(URL(string: serverDraft) == nil)
+
+                    Button(action: {
+                        if let url = URL(string: serverDraft) { settings.backendURL = url }
+                    }) {
+                        Text("Сохранить")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14).padding(.vertical, 7)
+                            .background(VibePlanTheme.ink900, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
                     .disabled(URL(string: serverDraft) == nil
                               || URL(string: serverDraft)?.absoluteString == settings.backendURL.absoluteString)
                     Spacer()
@@ -132,6 +150,7 @@ struct SettingsSheet: View {
                 if sync.isSyncing {
                     ProgressView().controlSize(.small)
                     Text("Синхронизация…")
+                        .foregroundStyle(VibePlanTheme.ink700)
                 } else if let last = sync.lastSyncAt {
                     Text("Последняя синхронизация: \(formatted(last))")
                         .foregroundStyle(VibePlanTheme.ink500)
@@ -141,7 +160,7 @@ struct SettingsSheet: View {
                 }
                 if let err = sync.lastError {
                     Text("· \(err)")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color(red: 0.78, green: 0.20, blue: 0.20))
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -149,11 +168,12 @@ struct SettingsSheet: View {
                 Button(action: { Task { await sync.fullSync() } }) {
                     Label("Синк", systemImage: "arrow.clockwise")
                         .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .foregroundStyle(VibePlanTheme.ink900)
+                        .padding(.horizontal, 12).padding(.vertical, 7)
+                        .background(Color.white, in: Capsule())
+                        .overlay(Capsule().stroke(Color.black.opacity(0.12)))
                 }
                 .buttonStyle(.plain)
-                .background(.white, in: Capsule())
-                .overlay(Capsule().stroke(Color.black.opacity(0.1)))
                 .disabled(sync.isSyncing)
                 .keyboardShortcut("r", modifiers: [.command])
             }

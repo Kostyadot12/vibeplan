@@ -46,6 +46,8 @@ struct VibePlanApp: App {
                 .environment(realtime)
                 .environment(roster)
                 .frame(minWidth: 1100, minHeight: 720)
+                .preferredColorScheme(.light)   // user chose «только светлая» — force it
+                .tint(VibePlanTheme.ink900)
                 .task { @MainActor in
                     if auth.isAuthenticated {
                         await sync.fullSync()

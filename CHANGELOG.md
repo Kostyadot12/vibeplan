@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.3 — fix dark-mode invisibility + sweep-pass on text contrast
+
+- **Force `.preferredColorScheme(.light)` на корне** WindowGroup, плюс
+  внутри каждого sheet'а (Settings, TaskEditor, Server). Раньше macOS в
+  тёмной теме переопределял `.primary` на белый — кнопки «Сегодня»,
+  «Проверить», заголовки модалок и текст в полях оказывались
+  бело-на-белом и были невидимыми.
+- `.tint(VibePlanTheme.ink900)` на корне → системные accent-элементы
+  (selection в TextField, и т.п.) тоже подхватывают тёмный.
+- Явные `.foregroundStyle` проставлены везде где раньше полагались на
+  системный default:
+  - Тулбар: «Сегодня», search-TextField, ScopeButton
+  - SettingsSheet: заголовок, имя в аккаунте, «Проверить», «Сохранить»,
+    «Синк», server-TextField
+  - LoginView ServerSheet: «Адрес сервера», все три кнопки, TextField
+  - TaskEditorSheet: title-TextField, note-TextEditor, subtask-TextField
+- Полупрозрачные `.white.opacity(0.7)` фоны inputs заменены на сплошной
+  `Color.white` — крепче читается, не зависит от того что под слоем.
+- Background sheet'ов сменён с gradient + .white-overlay на сплошной
+  cream `#FAF8F4` — детерминированный, не зависит от вибрансии Material.
+
 ## 0.5.2 — fix HTTP backend access + redesigned login
 
 - **Fix:** `NSAppTransportSecurity → NSAllowsArbitraryLoads = true` в Info.plist.

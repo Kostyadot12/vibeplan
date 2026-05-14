@@ -38,8 +38,7 @@ struct TaskEditorSheet: View {
 
     var body: some View {
         ZStack {
-            VibePlanTheme.backgroundGradient.ignoresSafeArea()
-            Color.white.opacity(0.4).ignoresSafeArea()
+            Color(hex: 0xFAF8F4).ignoresSafeArea()
 
             VStack(spacing: 0) {
                 header
@@ -60,6 +59,7 @@ struct TaskEditorSheet: View {
                 footer
             }
         }
+        .preferredColorScheme(.light)
         .onAppear(perform: load)
     }
 
@@ -101,13 +101,15 @@ struct TaskEditorSheet: View {
             TextField("", text: $title, prompt: Text("Что нужно сделать?").foregroundStyle(VibePlanTheme.ink400))
                 .textFieldStyle(.plain)
                 .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(VibePlanTheme.ink900)
                 .focused($focus, equals: .title)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(focus == .title ? VibePlanTheme.ink900.opacity(0.4) : Color.black.opacity(0.06))
+                        .stroke(focus == .title ? VibePlanTheme.ink900.opacity(0.4) : Color.black.opacity(0.06),
+                                lineWidth: focus == .title ? 1.5 : 1)
                 )
         }
     }
@@ -372,13 +374,14 @@ struct TaskEditorSheet: View {
                 }
                 TextEditor(text: $note)
                     .font(.system(size: 13))
+                    .foregroundStyle(VibePlanTheme.ink900)
                     .focused($focus, equals: .note)
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .frame(minHeight: 86)
             }
-            .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(focus == .note ? VibePlanTheme.ink900.opacity(0.4) : Color.black.opacity(0.06))
@@ -423,6 +426,7 @@ struct TaskEditorSheet: View {
                       prompt: Text("Добавить подзадачу").foregroundStyle(VibePlanTheme.ink400))
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
+                .foregroundStyle(VibePlanTheme.ink900)
                 .focused($focus, equals: .newSubtask)
                 .onSubmit(addSubtask)
 
