@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.2 — fix HTTP backend access + redesigned login
+
+- **Fix:** `NSAppTransportSecurity → NSAllowsArbitraryLoads = true` в Info.plist.
+  Без него macOS 14+ блокирует `http://` и логин падал с
+  «The resource could not be loaded because the App Transport Security policy
+  requires the use of a secure connection.»
+  Когда переедешь на TLS — можно снять.
+- **Redesign LoginView:**
+  - Тёплый градиентный фон с двумя цветными blob'ами (фиолет + синий)
+    в углах для глубины
+  - Большой брендовый логотип с мини-сеткой календаря (повторяет AppIcon)
+    и градиентом-чёрный → тёмно-фиолетовый
+  - Чистая белая карточка (вместо кашеобразного `.ultraThinMaterial`)
+    с двойной тенью для воздуха
+  - Поля с иконками и подсветкой фокуса (1.5pt чёрный border)
+  - Auto-submit когда введены все 6 цифр кода
+  - Анимация появления поля кода
+  - Счётчик «N/6» рядом с заголовком кода
+  - Капсула-кнопка с градиентным фоном и сильной тенью
+  - Server-чип с зелёной точкой и аккуратной тенью
+
 ## 0.5.1 — fix v0.5.0 build + production polish
 
 - **Fix:** `App.init` no longer wraps RealtimeClient/TeamRoster construction in

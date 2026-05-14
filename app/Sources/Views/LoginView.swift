@@ -18,93 +18,127 @@ struct LoginView: View {
 
     var body: some View {
         ZStack {
-            VibePlanTheme.backgroundGradient.ignoresSafeArea()
-
-            VStack(spacing: 28) {
-                wordmark
-
-                card
-                    .frame(width: 380)
-
-                serverChip
-            }
-            .padding(40)
+            backgroundCanvas
+            content
         }
         .sheet(isPresented: $settingsOpen) {
-            ServerSheet().frame(minWidth: 380, minHeight: 220)
+            ServerSheet().frame(minWidth: 380, minHeight: 240)
         }
         .onAppear { focus = .email }
     }
 
-    private var wordmark: some View {
-        VStack(spacing: 8) {
-            Text("VibePlan")
-                .font(.system(size: 34, weight: .bold))
-                .foregroundStyle(VibePlanTheme.ink900)
-            Text("Планируйте вместе")
-                .font(.system(size: 13, weight: .medium))
-                .tracking(0.6)
-                .textCase(.uppercase)
-                .foregroundStyle(VibePlanTheme.ink500)
+    // MARK: – Background
+
+    private var backgroundCanvas: some View {
+        ZStack {
+            // Warm cream-to-lavender base
+            LinearGradient(
+                colors: [
+                    Color(hex: 0xF7F2EB),
+                    Color(hex: 0xF0E8F3),
+                    Color(hex: 0xE7EFF7)
+                ],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+
+            // Two soft color blobs for depth
+            RadialGradient(
+                colors: [VibePlanTheme.catPersonal.opacity(0.32), .clear],
+                center: .topLeading, startRadius: 30, endRadius: 460
+            )
+            RadialGradient(
+                colors: [VibePlanTheme.catWork.opacity(0.28), .clear],
+                center: .bottomTrailing, startRadius: 60, endRadius: 520
+            )
+        }
+        .ignoresSafeArea()
+    }
+
+    // MARK: – Content
+
+    private var content: some View {
+        VStack(spacing: 32) {
+            brandMark
+            formCard
+                .frame(maxWidth: 380)
+            serverChip
+        }
+        .padding(.horizontal, 40)
+        .padding(.vertical, 50)
+    }
+
+    private var brandMark: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [Color(hex: 0x2D2646), Color(hex: 0x0F0F12)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 76, height: 76)
+                    .shadow(color: Color(hex: 0x3C3258, alpha: 0.32), radius: 18, x: 0, y: 10)
+
+                // Mini calendar-grid glyph (mirrors AppIcon-Source)
+                VStack(spacing: 5) {
+                    HStack(spacing: 5) {
+                        glyphCell(filled: false)
+                        glyphCell(filled: false)
+                        glyphCell(filled: false)
+                    }
+                    HStack(spacing: 5) {
+                        glyphCell(filled: false)
+                        glyphCell(filled: true)
+                        glyphCell(filled: false)
+                    }
+                    HStack(spacing: 5) {
+                        glyphCell(filled: false)
+                        glyphCell(filled: false)
+                        glyphCell(filled: false)
+                    }
+                }
+            }
+
+            VStack(spacing: 4) {
+                Text("VibePlan")
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(VibePlanTheme.ink900)
+                Text("планируйте вместе")
+                    .font(.system(size: 12, weight: .semibold))
+                    .tracking(1.4)
+                    .textCase(.uppercase)
+                    .foregroundStyle(VibePlanTheme.ink500)
+            }
         }
     }
 
-    private var card: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
-                label("Email")
-                TextField("you@team.io", text: $email)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 15, weight: .medium))
-                    .focused($focus, equals: .email)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(focus == .email ? VibePlanTheme.ink900.opacity(0.4) : Color.black.opacity(0.06)))
-                    .disabled(step == .code)
-                    .opacity(step == .code ? 0.7 : 1)
-                    .submitLabel(.next)
-                    .onSubmit { if step == .email { Task { await requestCode() } } }
-            }
+    private func glyphCell(filled: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 2, style: .continuous)
+            .fill(filled ? Color.white : Color.white.opacity(0.0))
+            .overlay(
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .stroke(Color.white.opacity(filled ? 0 : 0.85), lineWidth: 1.4)
+            )
+            .frame(width: 11, height: 11)
+    }
+
+    // MARK: – Form
+
+    private var formCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            emailField
 
             if step == .code {
-                VStack(alignment: .leading, spacing: 8) {
-                    label("Код из письма")
-                    TextField("6 цифр", text: $code)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 22, weight: .semibold).monospacedDigit())
-                        .tracking(8)
-                        .multilineTextAlignment(.center)
-                        .focused($focus, equals: .code)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 14)
-                        .background(.white.opacity(0.85), in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(focus == .code ? VibePlanTheme.ink900.opacity(0.4) : Color.black.opacity(0.06)))
-                        .submitLabel(.go)
-                        .onSubmit { Task { await verify() } }
-                        .onChange(of: code) { _, new in
-                            // strip non-digits, cap at 6
-                            let cleaned = String(new.filter(\.isNumber).prefix(6))
-                            if cleaned != new { code = cleaned }
-                        }
-                }
+                codeField
             }
 
             if let error {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                    Text(error).lineLimit(3)
-                }
-                .font(.system(size: 12))
-                .foregroundStyle(Color(red: 0.78, green: 0.20, blue: 0.20))
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(Color.red.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+                errorBanner(error)
             }
 
             actionButton
 
             if step == .code {
-                Button("Назад к email") {
+                Button("← назад к email") {
                     step = .email
                     code = ""
                     error = nil
@@ -114,12 +148,104 @@ struct LoginView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(VibePlanTheme.ink500)
                 .frame(maxWidth: .infinity)
+                .padding(.top, 4)
             }
         }
-        .padding(24)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.white.opacity(0.7)))
-        .shadow(color: Color(hex: 0x3C3258, alpha: 0.18), radius: 24, x: 0, y: 10)
+        .padding(26)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color.white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.black.opacity(0.05))
+        )
+        .shadow(color: Color(hex: 0x3C3258, alpha: 0.18), radius: 30, x: 0, y: 14)
+        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+    }
+
+    private var emailField: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            label("Email")
+            HStack(spacing: 10) {
+                Image(systemName: "envelope")
+                    .font(.system(size: 13))
+                    .foregroundStyle(VibePlanTheme.ink400)
+                TextField("you@team.io", text: $email)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14, weight: .medium))
+                    .focused($focus, equals: .email)
+                    .disabled(step == .code)
+                    .submitLabel(.next)
+                    .onSubmit { if step == .email { Task { await requestCode() } } }
+            }
+            .padding(.horizontal, 14).frame(height: 42)
+            .background(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(step == .code ? Color(hex: 0xF5F4F8) : Color(hex: 0xFAFAFB))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(focus == .email ? VibePlanTheme.ink900 : Color.black.opacity(0.08),
+                            lineWidth: focus == .email ? 1.5 : 1)
+            )
+        }
+    }
+
+    private var codeField: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                label("Код из письма")
+                Spacer()
+                Text("\(code.count)/6")
+                    .font(.system(size: 11, weight: .medium).monospacedDigit())
+                    .foregroundStyle(VibePlanTheme.ink400)
+            }
+            TextField("· · · · · ·", text: $code)
+                .textFieldStyle(.plain)
+                .font(.system(size: 26, weight: .semibold).monospacedDigit())
+                .tracking(10)
+                .multilineTextAlignment(.center)
+                .focused($focus, equals: .code)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(Color(hex: 0xFAFAFB))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(focus == .code ? VibePlanTheme.ink900 : Color.black.opacity(0.08),
+                                lineWidth: focus == .code ? 1.5 : 1)
+                )
+                .submitLabel(.go)
+                .onSubmit { Task { await verify() } }
+                .onChange(of: code) { _, new in
+                    let cleaned = String(new.filter(\.isNumber).prefix(6))
+                    if cleaned != new { code = cleaned }
+                    if cleaned.count == 6 { Task { await verify() } }   // auto-submit
+                }
+        }
+        .transition(.asymmetric(
+            insertion: .move(edge: .top).combined(with: .opacity),
+            removal:   .opacity
+        ))
+    }
+
+    private func errorBanner(_ msg: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 13))
+            Text(msg)
+                .font(.system(size: 12))
+                .lineLimit(3)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Color(red: 0.78, green: 0.20, blue: 0.20))
+        .padding(.horizontal, 12).padding(.vertical, 9)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(red: 0.78, green: 0.20, blue: 0.20).opacity(0.08))
+        )
     }
 
     private var actionButton: some View {
@@ -128,7 +254,7 @@ struct LoginView: View {
                 if sending {
                     ProgressView().controlSize(.small).tint(.white)
                 } else {
-                    Image(systemName: step == .email ? "envelope.fill" : "arrow.right")
+                    Image(systemName: step == .email ? "arrow.right" : "checkmark")
                         .font(.system(size: 12, weight: .bold))
                 }
                 Text(step == .email ? "Получить код" : "Войти")
@@ -136,32 +262,45 @@ struct LoginView: View {
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(VibePlanTheme.ink900, in: Capsule())
-            .shadow(color: .black.opacity(0.18), radius: 6, y: 3)
+            .padding(.vertical, 13)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [Color(hex: 0x2D2646), Color(hex: 0x0F0F12)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ))
+            )
+            .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
         }
         .buttonStyle(.plain)
         .disabled(disableAction)
-        .opacity(disableAction ? 0.5 : 1)
+        .opacity(disableAction ? 0.45 : 1)
     }
 
     private var serverChip: some View {
         Button(action: { settingsOpen = true }) {
-            HStack(spacing: 6) {
-                Circle().fill(Color.green.opacity(0.7)).frame(width: 6, height: 6)
-                Text("Сервер: ")
+            HStack(spacing: 7) {
+                Circle().fill(Color.green).frame(width: 6, height: 6)
+                Text("Сервер:")
                     .foregroundStyle(VibePlanTheme.ink500)
                 Text(settings.backendURL.host ?? settings.backendURL.absoluteString)
-                    .foregroundStyle(VibePlanTheme.ink700)
-                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(VibePlanTheme.ink900)
+                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
                 Image(systemName: "gearshape")
-                    .font(.system(size: 11))
-                    .foregroundStyle(VibePlanTheme.ink500)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(VibePlanTheme.ink400)
             }
             .font(.system(size: 12))
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(.white.opacity(0.55), in: Capsule())
-            .overlay(Capsule().stroke(Color.black.opacity(0.06)))
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(.white.opacity(0.85))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color.black.opacity(0.06))
+            )
+            .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -180,7 +319,8 @@ struct LoginView: View {
         do {
             let client = APIClient(baseURL: settings.backendURL, token: nil)
             try await client.requestCode(email: email.trimmingCharacters(in: .whitespaces).lowercased())
-            step = .code
+            withAnimation(.easeOut(duration: 0.18)) { step = .code }
+            try? await Task.sleep(nanoseconds: 200_000_000)
             focus = .code
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription ?? "\(error)"
@@ -198,7 +338,7 @@ struct LoginView: View {
             )
             auth.setLoggedIn(token: result.token, user: result.user)
         } catch APIError.http(401, let body) {
-            self.error = body.contains("истёк") ? "Срок действия кода истёк. Получите новый."
+            self.error = body.contains("истёк") ? "Срок действия кода истёк. Запросите новый."
                        : body.contains("Неверный")  ? "Неверный код"
                        : "Не получилось войти. Запросите новый код."
         } catch {
@@ -214,7 +354,7 @@ struct LoginView: View {
     private func label(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 11, weight: .semibold))
-            .tracking(0.6)
+            .tracking(0.7)
             .textCase(.uppercase)
             .foregroundStyle(VibePlanTheme.ink500)
     }
@@ -288,7 +428,7 @@ struct ServerSheet: View {
             if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
                 probeResult = "✓ Сервер ответил (HTTP \(http.statusCode))"
             } else {
-                probeResult = "✗ Сервер ответил, но не 2xx"
+                probeResult = "✗ Сервер не вернул 2xx"
             }
         } catch {
             probeResult = "✗ \(error.localizedDescription)"
